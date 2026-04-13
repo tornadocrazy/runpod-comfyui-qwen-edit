@@ -8,6 +8,16 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Upgrade ComfyUI — base image ships v0.3.x which lacks
+# TextEncodeQwenImageEditPlus (added 2025-09-22 in comfy_extras/nodes_qwen.py).
+# Pinned for reproducibility to commit from 2026-02-20.
+# ─────────────────────────────────────────────────────────────────────────────
+RUN cd /comfyui && \
+    git fetch --depth 1 origin 4d172e9ad7c50d08f21df48b04cca9b5f551d0e7 && \
+    git checkout 4d172e9ad7c50d08f21df48b04cca9b5f551d0e7 && \
+    pip install --no-cache-dir -r requirements.txt
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Custom nodes required by Qwen Edit workflows
 # ─────────────────────────────────────────────────────────────────────────────
 # KJNodes provides: ImageScaleToTotalPixels, CFGNorm, ModelSamplingAuraFlow
