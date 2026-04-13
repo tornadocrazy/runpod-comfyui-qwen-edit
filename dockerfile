@@ -23,6 +23,12 @@ RUN rm -rf /comfyui/comfy_api_nodes
 # Models — plain wget, one per layer for Docker cache
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Ensure model directories exist (some may not be in base image)
+RUN mkdir -p /comfyui/models/text_encoders \
+             /comfyui/models/diffusion_models \
+             /comfyui/models/vae \
+             /comfyui/models/loras
+
 # Qwen 2.5 VL 7B text encoder — fp8 (~7 GB)
 RUN wget -q --show-progress \
     https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
