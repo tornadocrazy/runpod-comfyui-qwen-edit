@@ -4,8 +4,18 @@ FROM runpod/worker-comfyui:5.4.1-base
 # System packages
 # ─────────────────────────────────────────────────────────────────────────────
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends wget && \
+    apt-get install -y --no-install-recommends wget unzip && \
     rm -rf /var/lib/apt/lists/*
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Python dependencies for ReActor face swap
+# Pre-built insightface wheel avoids C compilation issues
+# ─────────────────────────────────────────────────────────────────────────────
+RUN pip install --no-cache-dir \
+    https://huggingface.co/iwr-redmond/linux-wheels/resolve/main/insightface-0.7.3-cp312-cp312-linux_x86_64.whl \
+    onnxruntime-gpu==1.20.0 \
+    facexlib \
+    gfpgan
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Upgrade ComfyUI — base image ships v0.3.x which lacks
@@ -25,6 +35,15 @@ RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/kijai/ComfyUI-KJNodes && \
     cd ComfyUI-KJNodes && \
     pip install --no-cache-dir -r requirements.txt
+
+# ReActor face swap — comfy-node-install re-installs onnxruntime (CPU), so we
+# force-reinstall the GPU variant afterwards
+RUN comfy-node-install comfyui-reactor && \
+    pip uninstall -y onnxruntime && \
+    pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.20.0
+
+# Bypass ReActor NSFW filter — avoids downloading large classifier at runtime
+COPY reactor_sfw.py /comfyui/custom_nodes/comfyui-reactor/scripts/reactor_sfw.py
 
 # Remove unused nodes to speed up startup
 RUN rm -rf /comfyui/comfy_api_nodes
@@ -58,6 +77,41 @@ RUN wget -q --show-progress \
 RUN wget -q --show-progress \
     https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
     -O /comfyui/models/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ReActor models — inswapper + buffalo_l + face detection weights
+# ─────────────────────────────────────────────────────────────────────────────
+
+# InsightFace buffalo_l face detector/recognizer (~275 MB)
+RUN comfy model download \
+        --url https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip \
+        --relative-path models/insightface/models --filename buffalo_l.zip && \
+    unzip /comfyui/models/insightface/models/buffalo_l.zip \
+          -d /comfyui/models/insightface/models/buffalo_l && \
+    rm /comfyui/models/insightface/models/buffalo_l.zip
+
+# Inswapper face swap model (~550 MB)
+RUN comfy model download \
+        --url https://huggingface.co/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx \
+        --relative-path models/insightface --filename inswapper_128.onnx
+
+# facexlib + GFPGAN face detection weights
+# GFPGAN (used by ReActor face restoration) looks in models/facedetection/, not models/facexlib/
+RUN comfy model download \
+        --url https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth \
+        --relative-path models/facexlib --filename detection_Resnet50_Final.pth && \
+    comfy model download \
+        --url https://github.com/xinntao/facexlib/releases/download/v0.2.0/parsing_bisenet.pth \
+        --relative-path models/facexlib --filename parsing_bisenet.pth && \
+    mkdir -p /comfyui/models/facedetection && \
+    cp /comfyui/models/facexlib/detection_Resnet50_Final.pth /comfyui/models/facedetection/ && \
+    wget -q -O /comfyui/models/facedetection/parsing_parsenet.pth \
+        "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/parsing_parsenet.pth"
+
+# GFPGAN face restoration model (~350 MB) — used by ReActor to sharpen swapped faces
+RUN comfy model download \
+        --url https://huggingface.co/gmk123/GFPGAN/resolve/main/GFPGANv1.4.pth \
+        --relative-path models/facerestore_models --filename GFPGANv1.4.pth
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Warmup + start scripts
