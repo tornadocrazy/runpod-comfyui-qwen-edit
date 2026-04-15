@@ -17,10 +17,18 @@ echo "worker-comfyui: Starting ComfyUI (Qwen Edit)"
 if [ "$SERVE_API_LOCALLY" == "true" ]; then
     python -u /comfyui/main.py --disable-auto-launch --disable-metadata --listen --verbose "${COMFY_LOG_LEVEL}" --log-stdout ${COMFY_EXTRA_ARGS} &
 
+    # Pre-warm GFPGAN/facexlib CUDA kernels in background.
+    # First GFPGAN inference triggers ~5s CUDA kernel compilation —
+    # running a dummy pass at startup shifts this off the first request.
+    python -u /warmup_gfpgan.py &
+
     echo "worker-comfyui: Starting RunPod Handler"
     python -u /handler.py --rp_serve_api --rp_api_host=0.0.0.0
 else
     python -u /comfyui/main.py --disable-auto-launch --disable-metadata --verbose "${COMFY_LOG_LEVEL}" --log-stdout ${COMFY_EXTRA_ARGS} &
+
+    # Pre-warm GFPGAN/facexlib CUDA kernels in background.
+    python -u /warmup_gfpgan.py &
 
     echo "worker-comfyui: Starting RunPod Handler"
     python -u /handler.py

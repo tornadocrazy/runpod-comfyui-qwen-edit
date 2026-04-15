@@ -53,14 +53,26 @@ def load_vae():
     torch.cuda.empty_cache()
 
 
-def load_lora():
+def load_lightning_lora():
     """Load Lightning LoRA (4-step, bf16)"""
     t0 = time.time()
     import torch
     from safetensors.torch import load_file
     path = os.path.join(MODELS_DIR, "loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors")
     sd = load_file(path, device="cuda")
-    log.info(f"LoRA: {len(sd)} keys loaded in {time.time()-t0:.1f}s")
+    log.info(f"Lightning LoRA: {len(sd)} keys loaded in {time.time()-t0:.1f}s")
+    del sd
+    torch.cuda.empty_cache()
+
+
+def load_hrp_lora():
+    """Load HRP_20 identity LoRA"""
+    t0 = time.time()
+    import torch
+    from safetensors.torch import load_file
+    path = os.path.join(MODELS_DIR, "loras/HRP_20.safetensors")
+    sd = load_file(path, device="cuda")
+    log.info(f"HRP_20 LoRA: {len(sd)} keys loaded in {time.time()-t0:.1f}s")
     del sd
     torch.cuda.empty_cache()
 
@@ -73,7 +85,8 @@ def main():
         ("unet", load_unet),
         ("text_encoder", load_text_encoder),
         ("vae", load_vae),
-        ("lora", load_lora),
+        ("lightning_lora", load_lightning_lora),
+        ("hrp_lora", load_hrp_lora),
     ]
 
     with ThreadPoolExecutor(max_workers=len(loaders)) as pool:

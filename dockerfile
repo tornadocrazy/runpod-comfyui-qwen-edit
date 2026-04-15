@@ -120,8 +120,18 @@ RUN comfy model download \
         --relative-path models/facerestore_models --filename GFPGANv1.4.pth
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Patches — P6: parallel prefetch monkey-patch on core ComfyUI loaders
+# ─────────────────────────────────────────────────────────────────────────────
+COPY patch_qwen.sh /tmp/patch_qwen.sh
+RUN chmod +x /tmp/patch_qwen.sh && /tmp/patch_qwen.sh && rm /tmp/patch_qwen.sh
+
+# Pre-generate matplotlib font cache (avoids ~0.5s rebuild on cold start)
+RUN python3 -c "from matplotlib.font_manager import FontManager; FontManager()" || true
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Warmup + start scripts
 # ─────────────────────────────────────────────────────────────────────────────
 COPY warmup_models.py /warmup_models.py
+COPY warmup_gfpgan.py /warmup_gfpgan.py
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
