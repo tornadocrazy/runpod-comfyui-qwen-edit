@@ -22,6 +22,11 @@ if [ "$SERVE_API_LOCALLY" == "true" ]; then
     # running a dummy pass at startup shifts this off the first request.
     python -u /warmup_gfpgan.py &
 
+    # Pre-warm Qwen Image Edit pipeline on GPU via a 1-step dummy workflow.
+    # Shifts ~10-12s of CPU→VRAM streaming + CUDA kernel compile off the
+    # first real request so it runs at warm exec time (~10s instead of ~30s).
+    python -u /warmup_qwen.py &
+
     echo "worker-comfyui: Starting RunPod Handler"
     python -u /handler.py --rp_serve_api --rp_api_host=0.0.0.0
 else
@@ -29,6 +34,9 @@ else
 
     # Pre-warm GFPGAN/facexlib CUDA kernels in background.
     python -u /warmup_gfpgan.py &
+
+    # Pre-warm Qwen Image Edit pipeline on GPU via a 1-step dummy workflow.
+    python -u /warmup_qwen.py &
 
     echo "worker-comfyui: Starting RunPod Handler"
     python -u /handler.py
