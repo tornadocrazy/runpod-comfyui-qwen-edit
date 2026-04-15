@@ -73,6 +73,12 @@ RUN wget -q --show-progress \
     https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/resolve/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors \
     -O /comfyui/models/loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
 
+# Hyper-Realistic Portrait identity LoRA — rank 20 (~225 MB)
+# Enables strict face-identity preservation when transforming image1 subject.
+RUN wget -q --show-progress \
+    https://huggingface.co/prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait/resolve/main/HRP_20.safetensors \
+    -O /comfyui/models/loras/HRP_20.safetensors
+
 # Qwen Image Edit diffusion model — fp8 mixed (~7-10 GB)
 RUN wget -q --show-progress \
     https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
