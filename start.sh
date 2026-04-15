@@ -23,9 +23,14 @@ if [ "$SERVE_API_LOCALLY" == "true" ]; then
     python -u /warmup_gfpgan.py &
 
     # Pre-warm Qwen Image Edit pipeline on GPU via a 1-step dummy workflow.
-    # Shifts ~10-12s of CPU→VRAM streaming + CUDA kernel compile off the
-    # first real request so it runs at warm exec time (~10s instead of ~30s).
+    # Block handler startup until warmup finishes so the first real request
+    # is guaranteed to find models already on GPU (avoids race with handler
+    # uploads for the ComfyUI /prompt queue slot).
     python -u /warmup_qwen.py &
+    WARMUP_QWEN_PID=$!
+
+    echo "worker-comfyui: Waiting for Qwen warmup before starting handler..."
+    wait "${WARMUP_QWEN_PID}" || echo "worker-comfyui - warmup_qwen exited non-zero (continuing anyway)" >&2
 
     echo "worker-comfyui: Starting RunPod Handler"
     python -u /handler.py --rp_serve_api --rp_api_host=0.0.0.0
@@ -36,7 +41,12 @@ else
     python -u /warmup_gfpgan.py &
 
     # Pre-warm Qwen Image Edit pipeline on GPU via a 1-step dummy workflow.
+    # Block handler startup until warmup finishes (see comment above).
     python -u /warmup_qwen.py &
+    WARMUP_QWEN_PID=$!
+
+    echo "worker-comfyui: Waiting for Qwen warmup before starting handler..."
+    wait "${WARMUP_QWEN_PID}" || echo "worker-comfyui - warmup_qwen exited non-zero (continuing anyway)" >&2
 
     echo "worker-comfyui: Starting RunPod Handler"
     python -u /handler.py
