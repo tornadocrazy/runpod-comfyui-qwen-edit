@@ -39,9 +39,9 @@ RUN cd /comfyui/custom_nodes && \
     cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch
 
-# ReActor face swap — comfy-node-install re-installs onnxruntime (CPU), so we
-# force-reinstall the GPU variant afterwards
-RUN comfy-node-install comfyui-reactor && \
+# ReActor (face swap) + RMBG (background removal) — comfy-node-install
+# re-installs onnxruntime (CPU), so we force-reinstall the GPU variant afterwards
+RUN comfy-node-install comfyui-reactor comfyui-rmbg && \
     pip uninstall -y onnxruntime && \
     pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.20.0
 
@@ -127,6 +127,20 @@ RUN comfy model download \
 RUN comfy model download \
         --url https://huggingface.co/gmk123/GFPGAN/resolve/main/GFPGANv1.4.pth \
         --relative-path models/facerestore_models --filename GFPGANv1.4.pth
+
+# RMBG-2.0 (background removal) — node downloads to models/RMBG/RMBG-2.0/ at runtime
+# Pre-bake all files so no runtime downloads needed
+RUN mkdir -p /comfyui/models/RMBG/RMBG-2.0 && \
+    wget -q -O /comfyui/models/RMBG/RMBG-2.0/birefnet.py \
+        "https://huggingface.co/1038lab/RMBG-2.0/raw/main/birefnet.py" && \
+    wget -q -O /comfyui/models/RMBG/RMBG-2.0/BiRefNet_config.py \
+        "https://huggingface.co/1038lab/RMBG-2.0/raw/main/BiRefNet_config.py" && \
+    wget -q -O /comfyui/models/RMBG/RMBG-2.0/config.json \
+        "https://huggingface.co/1038lab/RMBG-2.0/resolve/main/config.json"
+RUN --mount=type=cache,target=/root/.cache \
+    comfy model download \
+        --url https://huggingface.co/1038lab/RMBG-2.0/resolve/main/model.safetensors \
+        --relative-path models/RMBG/RMBG-2.0 --filename model.safetensors
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Patches — P6: parallel prefetch monkey-patch on core ComfyUI loaders
