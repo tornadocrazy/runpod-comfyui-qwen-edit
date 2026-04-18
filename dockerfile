@@ -31,10 +31,13 @@ RUN cd /comfyui && \
 # Custom nodes required by Qwen Edit workflows
 # ─────────────────────────────────────────────────────────────────────────────
 # KJNodes provides: ImageScaleToTotalPixels, CFGNorm, ModelSamplingAuraFlow
+# Inpaint-CropAndStitch forces inpaint to fit mask bounds (crops + rescales so
+# the masked region fills the model's canvas — fixes Qwen hands-cropped bug).
 RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/kijai/ComfyUI-KJNodes && \
-    cd ComfyUI-KJNodes && \
-    pip install --no-cache-dir -r requirements.txt
+    cd ComfyUI-KJNodes && pip install --no-cache-dir -r requirements.txt && \
+    cd /comfyui/custom_nodes && \
+    git clone --depth 1 https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch
 
 # ReActor face swap — comfy-node-install re-installs onnxruntime (CPU), so we
 # force-reinstall the GPU variant afterwards
@@ -78,6 +81,12 @@ RUN wget -q --show-progress \
 RUN wget -q --show-progress \
     https://huggingface.co/prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait/resolve/main/HRP_20.safetensors \
     -O /comfyui/models/loras/HRP_20.safetensors
+
+# Qwen Image Edit Inpaint LoRA (ostris) — trained to fill black-painted holes,
+# respects mask bounds by design (~590 MB).
+RUN wget -q --show-progress \
+    https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
+    -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
 
 # Qwen Image Edit diffusion model — fp8 mixed (~7-10 GB)
 RUN wget -q --show-progress \
