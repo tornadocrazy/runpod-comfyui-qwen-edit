@@ -88,6 +88,13 @@ RUN wget -q --show-progress \
     https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
     -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
 
+# BFS (Best Face Swap) Head V5 LoRA for Qwen Image Edit 2511 (~148 MB).
+# Purpose: replace head in Picture 1 (body) with head from Picture 2 (face ref),
+# preserving body pose, lighting, and background. Uses inverted input order.
+RUN wget -q --show-progress \
+    https://huggingface.co/Alissonerdx/BFS-Best-Face-Swap/resolve/main/bfs_head_v5_2511_original.safetensors \
+    -O /comfyui/models/loras/bfs_head_v5_2511_original.safetensors
+
 # Qwen Image Edit diffusion model — fp8 mixed (~7-10 GB)
 RUN wget -q --show-progress \
     https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
