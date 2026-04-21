@@ -22,6 +22,10 @@ if [ "$SERVE_API_LOCALLY" == "true" ]; then
     # running a dummy pass at startup shifts this off the first request.
     python -u /warmup_gfpgan.py &
 
+    # Pre-warm InsightFace (buffalo_l + inswapper) ONNX CUDA sessions.
+    # First ReActor face-swap triggers ~30s of CUDA kernel compile.
+    python -u /warmup_insightface.py &
+
     # Pre-warm Qwen Image Edit pipeline on GPU via a 1-step dummy workflow.
     # Block handler startup until warmup finishes so the first real request
     # is guaranteed to find models already on GPU (avoids race with handler
@@ -39,6 +43,9 @@ else
 
     # Pre-warm GFPGAN/facexlib CUDA kernels in background.
     python -u /warmup_gfpgan.py &
+
+    # Pre-warm InsightFace (buffalo_l + inswapper) ONNX CUDA sessions.
+    python -u /warmup_insightface.py &
 
     # Pre-warm Qwen Image Edit pipeline on GPU via a 1-step dummy workflow.
     # Block handler startup until warmup finishes (see comment above).

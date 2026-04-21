@@ -160,5 +160,6 @@ RUN python3 -c "from matplotlib.font_manager import FontManager; FontManager()" 
 COPY warmup_models.py /warmup_models.py
 COPY warmup_gfpgan.py /warmup_gfpgan.py
 COPY warmup_qwen.py /warmup_qwen.py
+COPY warmup_insightface.py /warmup_insightface.py
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
