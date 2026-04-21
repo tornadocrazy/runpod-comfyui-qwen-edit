@@ -88,13 +88,6 @@ RUN wget -q --show-progress \
     https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
     -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
 
-# BFS (Best Face Swap) Head V5 LoRA for Qwen Image Edit 2511 (~148 MB).
-# Purpose: replace head in Picture 1 (body) with head from Picture 2 (face ref),
-# preserving body pose, lighting, and background. Uses inverted input order.
-RUN wget -q --show-progress \
-    https://huggingface.co/Alissonerdx/BFS-Best-Face-Swap/resolve/main/bfs_head_v5_2511_original.safetensors \
-    -O /comfyui/models/loras/bfs_head_v5_2511_original.safetensors
-
 # Qwen Image Edit diffusion model — fp8 mixed (~7-10 GB)
 RUN wget -q --show-progress \
     https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
@@ -119,12 +112,11 @@ RUN comfy model download \
 
 # facexlib + GFPGAN face detection weights
 # GFPGAN (used by ReActor face restoration) looks in models/facedetection/, not models/facexlib/
+# parsing_parsenet.pth is the parsing model GFPGAN actually loads (parsing_bisenet is
+# the BiSeNet variant — ReActor+GFPGAN doesn't use it, so we skip the download).
 RUN comfy model download \
         --url https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth \
         --relative-path models/facexlib --filename detection_Resnet50_Final.pth && \
-    comfy model download \
-        --url https://github.com/xinntao/facexlib/releases/download/v0.2.0/parsing_bisenet.pth \
-        --relative-path models/facexlib --filename parsing_bisenet.pth && \
     mkdir -p /comfyui/models/facedetection && \
     cp /comfyui/models/facexlib/detection_Resnet50_Final.pth /comfyui/models/facedetection/ && \
     wget -q -O /comfyui/models/facedetection/parsing_parsenet.pth \

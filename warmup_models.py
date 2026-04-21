@@ -77,6 +77,18 @@ def load_hrp_lora():
     torch.cuda.empty_cache()
 
 
+def load_inpaint_lora():
+    """Load qwen_image_edit_inpainting LoRA (used by v8 outpaint branch)"""
+    t0 = time.time()
+    import torch
+    from safetensors.torch import load_file
+    path = os.path.join(MODELS_DIR, "loras/qwen_image_edit_inpainting.safetensors")
+    sd = load_file(path, device="cuda")
+    log.info(f"Inpaint LoRA: {len(sd)} keys loaded in {time.time()-t0:.1f}s")
+    del sd
+    torch.cuda.empty_cache()
+
+
 def main():
     t_start = time.time()
     log.info("Starting parallel model warmup (Qwen Edit)...")
@@ -87,6 +99,7 @@ def main():
         ("vae", load_vae),
         ("lightning_lora", load_lightning_lora),
         ("hrp_lora", load_hrp_lora),
+        ("inpaint_lora", load_inpaint_lora),
     ]
 
     with ThreadPoolExecutor(max_workers=len(loaders)) as pool:
