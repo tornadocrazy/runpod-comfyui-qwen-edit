@@ -13,7 +13,7 @@ RUN apt-get update && \
 # ─────────────────────────────────────────────────────────────────────────────
 RUN pip install --no-cache-dir \
     https://huggingface.co/iwr-redmond/linux-wheels/resolve/main/insightface-0.7.3-cp312-cp312-linux_x86_64.whl \
-    onnxruntime-gpu==1.20.0 \
+    onnxruntime-gpu==1.22.0 \
     facexlib \
     gfpgan
 
@@ -43,7 +43,7 @@ RUN cd /comfyui/custom_nodes && \
 # re-installs onnxruntime (CPU), so we force-reinstall the GPU variant afterwards
 RUN comfy-node-install comfyui-reactor comfyui-rmbg && \
     pip uninstall -y onnxruntime && \
-    pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.20.0
+    pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.22.0
 
 # Bypass ReActor NSFW filter — avoids downloading large classifier at runtime
 COPY reactor_sfw.py /comfyui/custom_nodes/comfyui-reactor/scripts/reactor_sfw.py
@@ -114,13 +114,17 @@ RUN comfy model download \
 # GFPGAN (used by ReActor face restoration) looks in models/facedetection/, not models/facexlib/
 # parsing_parsenet.pth is the parsing model GFPGAN actually loads (parsing_bisenet is
 # the BiSeNet variant — ReActor+GFPGAN doesn't use it, so we skip the download).
+# Also mirror into /gfpgan/weights/ — the gfpgan library's default cache dir,
+# which it will runtime-download into otherwise (adds ~1s + 100MB egress per cold start).
 RUN comfy model download \
         --url https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth \
         --relative-path models/facexlib --filename detection_Resnet50_Final.pth && \
-    mkdir -p /comfyui/models/facedetection && \
+    mkdir -p /comfyui/models/facedetection /gfpgan/weights && \
     cp /comfyui/models/facexlib/detection_Resnet50_Final.pth /comfyui/models/facedetection/ && \
+    cp /comfyui/models/facexlib/detection_Resnet50_Final.pth /gfpgan/weights/ && \
     wget -q -O /comfyui/models/facedetection/parsing_parsenet.pth \
-        "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/parsing_parsenet.pth"
+        "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/parsing_parsenet.pth" && \
+    cp /comfyui/models/facedetection/parsing_parsenet.pth /gfpgan/weights/
 
 # GFPGAN face restoration model (~350 MB) — used by ReActor to sharpen swapped faces
 RUN comfy model download \

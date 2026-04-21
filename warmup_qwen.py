@@ -64,6 +64,7 @@ def build_workflow():
         "112": {"class_type": "ConditioningZeroOut", "inputs": {"conditioning": ["111", 0]}},
         "3": {"class_type": "KSampler", "inputs": {"seed": 0, "steps": 1, "cfg": 1, "sampler_name": "euler", "scheduler": "simple", "denoise": 1, "model": ["75", 0], "positive": ["111", 0], "negative": ["112", 0], "latent_image": ["88", 0]}},
         "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["39", 0]}},
+        "9": {"class_type": "PreviewImage", "inputs": {"images": ["8", 0]}},
     }
 
 
