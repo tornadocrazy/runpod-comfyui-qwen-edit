@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T00:00
+# build trigger: 2026-05-04T01:00
 
 # ─────────────────────────────────────────────────────────────────────────────
 # System packages
@@ -68,10 +68,19 @@ RUN wget -q --show-progress \
     -O /comfyui/models/loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
 
 # Hyper-Realistic Portrait identity LoRA — rank 20 (~225 MB)
-# Enables strict face-identity preservation when transforming image1 subject.
 RUN wget -q --show-progress \
     https://huggingface.co/prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait/resolve/main/HRP_20.safetensors \
     -O /comfyui/models/loras/HRP_20.safetensors
+
+# Qwen Image Edit Inpaint LoRA (~590 MB)
+RUN wget -q --show-progress \
+    https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
+    -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
+
+# Qwen Image Union DiffSynth ControlNet LoRA — pose/depth/canny (~944 MB)
+RUN wget -q --show-progress \
+    https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
+    -O /comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
 
 # Qwen Image Edit diffusion model — fp8 mixed (~7-10 GB)
 RUN wget -q --show-progress \
@@ -133,8 +142,8 @@ RUN --mount=type=cache,target=/root/.cache \
 # ─────────────────────────────────────────────────────────────────────────────
 # Patches — P6: parallel prefetch monkey-patch on core ComfyUI loaders
 # ─────────────────────────────────────────────────────────────────────────────
-COPY patch_qwen.sh /tmp/patch_qwen.sh
-RUN chmod +x /tmp/patch_qwen.sh && /tmp/patch_qwen.sh && rm /tmp/patch_qwen.sh
+COPY --chmod=0755 patch_qwen.sh /tmp/patch_qwen.sh
+RUN /tmp/patch_qwen.sh && rm /tmp/patch_qwen.sh
 
 # Pre-generate matplotlib font cache (avoids ~0.5s rebuild on cold start)
 RUN python3 -c "from matplotlib.font_manager import FontManager; FontManager()" || true
@@ -142,9 +151,5 @@ RUN python3 -c "from matplotlib.font_manager import FontManager; FontManager()" 
 # ─────────────────────────────────────────────────────────────────────────────
 # Warmup + start scripts
 # ─────────────────────────────────────────────────────────────────────────────
-COPY warmup_models.py /warmup_models.py
-COPY warmup_gfpgan.py /warmup_gfpgan.py
-COPY warmup_qwen.py /warmup_qwen.py
-COPY warmup_insightface.py /warmup_insightface.py
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+COPY warmup_gfpgan.py warmup_qwen.py warmup_insightface.py /
+COPY --chmod=0755 start.sh /start.sh
