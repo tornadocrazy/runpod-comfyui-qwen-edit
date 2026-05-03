@@ -55,6 +55,11 @@ RUN rm -rf /comfyui/comfy_api_nodes
 # Models — plain wget, one per layer for Docker cache
 # ─────────────────────────────────────────────────────────────────────────────
 
+# controlnet_aux — provides DWPose/OpenPose skeleton extraction nodes
+RUN cd /comfyui/custom_nodes && \
+    git clone --depth 1 https://github.com/Fannovel16/comfyui_controlnet_aux && \
+    cd comfyui_controlnet_aux && pip install --no-cache-dir -r requirements.txt
+
 # Ensure model directories exist (some may not be in base image)
 RUN mkdir -p /comfyui/models/text_encoders \
              /comfyui/models/diffusion_models \
@@ -87,6 +92,11 @@ RUN wget -q --show-progress \
 RUN wget -q --show-progress \
     https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
     -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
+
+# Qwen Image Union DiffSynth ControlNet LoRA — supports pose/depth/canny/etc (~944 MB)
+RUN wget -q --show-progress \
+    https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
+    -O /comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
 
 # Qwen Image Edit diffusion model — fp8 mixed (~7-10 GB)
 RUN wget -q --show-progress \
