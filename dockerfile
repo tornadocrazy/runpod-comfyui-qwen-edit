@@ -1,5 +1,5 @@
-FROM runpod/worker-comfyui:5.4.1-base
-# build trigger: 2026-05-03T20:30
+FROM runpod/worker-comfyui:5.8.5-base
+# build trigger: 2026-05-04T00:00
 
 # ─────────────────────────────────────────────────────────────────────────────
 # System packages
@@ -17,16 +17,6 @@ RUN pip install --no-cache-dir \
     onnxruntime-gpu==1.22.0 \
     facexlib \
     gfpgan
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Upgrade ComfyUI — base image ships v0.3.x which lacks
-# TextEncodeQwenImageEditPlus (added 2025-09-22 in comfy_extras/nodes_qwen.py).
-# Pinned for reproducibility to commit from 2026-02-20.
-# ─────────────────────────────────────────────────────────────────────────────
-RUN cd /comfyui && \
-    git fetch --depth 1 origin 4d172e9ad7c50d08f21df48b04cca9b5f551d0e7 && \
-    git checkout 4d172e9ad7c50d08f21df48b04cca9b5f551d0e7 && \
-    pip install --no-cache-dir -r requirements.txt
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Custom nodes required by Qwen Edit workflows
@@ -82,12 +72,6 @@ RUN wget -q --show-progress \
 RUN wget -q --show-progress \
     https://huggingface.co/prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait/resolve/main/HRP_20.safetensors \
     -O /comfyui/models/loras/HRP_20.safetensors
-
-# Qwen Image Edit Inpaint LoRA (ostris) — trained to fill black-painted holes,
-# respects mask bounds by design (~590 MB).
-RUN wget -q --show-progress \
-    https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
-    -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
 
 # Qwen Image Edit diffusion model — fp8 mixed (~7-10 GB)
 RUN wget -q --show-progress \
