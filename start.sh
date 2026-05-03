@@ -1,6 +1,25 @@
 #!/usr/bin/env bash
 set -e
 
+# ── Runtime installs (kept out of Dockerfile to stay under 30-min build limit) ──
+
+# controlnet_aux — DWPose/OpenPose skeleton extraction for ControlNet workflows
+CONTROLNET_AUX=/comfyui/custom_nodes/comfyui_controlnet_aux
+if [ ! -d "$CONTROLNET_AUX" ]; then
+    echo "worker-comfyui: Installing comfyui_controlnet_aux..."
+    git clone --depth 1 https://github.com/Fannovel16/comfyui_controlnet_aux "$CONTROLNET_AUX"
+    pip install --no-cache-dir -r "$CONTROLNET_AUX/requirements.txt"
+fi
+
+# Union ControlNet LoRA (~944 MB) — supports DWPose/depth/canny etc.
+UNION_LORA=/comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
+if [ ! -f "$UNION_LORA" ]; then
+    echo "worker-comfyui: Downloading union ControlNet LoRA (~944 MB)..."
+    wget -q --show-progress \
+        https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
+        -O "$UNION_LORA"
+fi
+
 # Use libtcmalloc for better memory management
 TCMALLOC="$(ldconfig -p | grep -Po 'libtcmalloc.so.\d' | head -n 1)"
 export LD_PRELOAD="${TCMALLOC}"
