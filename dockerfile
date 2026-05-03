@@ -21,18 +21,18 @@ RUN pip install --no-cache-dir \
 # ─────────────────────────────────────────────────────────────────────────────
 # Custom nodes required by Qwen Edit workflows
 # ─────────────────────────────────────────────────────────────────────────────
-# KJNodes provides: ImageScaleToTotalPixels, CFGNorm, ModelSamplingAuraFlow
-# Inpaint-CropAndStitch forces inpaint to fit mask bounds (crops + rescales so
-# the masked region fills the model's canvas — fixes Qwen hands-cropped bug).
+# Clone all nodes in one step (skips comfy-node-install registry overhead)
 RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/kijai/ComfyUI-KJNodes && \
-    cd ComfyUI-KJNodes && pip install --no-cache-dir -r requirements.txt && \
-    cd /comfyui/custom_nodes && \
-    git clone --depth 1 https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch
+    git clone --depth 1 https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch && \
+    git clone --depth 1 https://github.com/Gourieff/ComfyUI-ReActor comfyui-reactor && \
+    git clone --depth 1 https://github.com/1038lab/ComfyUI-RMBG
 
-# ReActor (face swap) + RMBG (background removal) — comfy-node-install
-# re-installs onnxruntime (CPU), so we force-reinstall the GPU variant afterwards
-RUN comfy-node-install comfyui-reactor comfyui-rmbg && \
+# One pip resolver pass for all node requirements + pin GPU onnxruntime
+RUN pip install --no-cache-dir \
+        -r /comfyui/custom_nodes/ComfyUI-KJNodes/requirements.txt \
+        -r /comfyui/custom_nodes/comfyui-reactor/requirements.txt \
+        -r /comfyui/custom_nodes/ComfyUI-RMBG/requirements.txt && \
     pip uninstall -y onnxruntime && \
     pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.22.0
 
