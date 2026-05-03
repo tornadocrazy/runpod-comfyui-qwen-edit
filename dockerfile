@@ -53,37 +53,37 @@ RUN mkdir -p /comfyui/models/text_encoders \
              /comfyui/models/loras
 
 # Qwen 2.5 VL 7B text encoder — fp8 (~7 GB)
-RUN wget -q --show-progress \
+RUN wget -q \
     https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
     -O /comfyui/models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors
 
 # Qwen Image VAE
-RUN wget -q --show-progress \
+RUN wget -q \
     https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors \
     -O /comfyui/models/vae/qwen_image_vae.safetensors
 
 # Lightning LoRA — 4-step fast inference (bf16)
-RUN wget -q --show-progress \
+RUN wget -q \
     https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/resolve/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors \
     -O /comfyui/models/loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
 
 # Hyper-Realistic Portrait identity LoRA — rank 20 (~225 MB)
-RUN wget -q --show-progress \
+RUN wget -q \
     https://huggingface.co/prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait/resolve/main/HRP_20.safetensors \
     -O /comfyui/models/loras/HRP_20.safetensors
 
 # Qwen Image Edit Inpaint LoRA (~590 MB)
-RUN wget -q --show-progress \
+RUN wget -q \
     https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
     -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
 
 # Qwen Image Union DiffSynth ControlNet LoRA — pose/depth/canny (~944 MB)
-RUN wget -q --show-progress \
+RUN wget -q \
     https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
     -O /comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
 
 # Qwen Image Edit diffusion model — fp8 mixed (~7-10 GB)
-RUN wget -q --show-progress \
+RUN wget -q \
     https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
     -O /comfyui/models/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors
 
