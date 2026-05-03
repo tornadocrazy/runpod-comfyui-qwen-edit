@@ -72,11 +72,6 @@ RUN wget -q \
     https://huggingface.co/prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait/resolve/main/HRP_20.safetensors \
     -O /comfyui/models/loras/HRP_20.safetensors
 
-# Qwen Image Edit Inpaint LoRA (~590 MB)
-RUN wget -q \
-    https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
-    -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
-
 # Qwen Image Union DiffSynth ControlNet LoRA — pose/depth/canny (~944 MB)
 RUN wget -q \
     https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
