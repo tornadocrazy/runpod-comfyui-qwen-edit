@@ -10,16 +10,6 @@ comfy-manager-set-mode offline || echo "worker-comfyui - Could not set ComfyUI-M
 
 echo "worker-comfyui: Starting ComfyUI (Qwen Edit)"
 
-# Download union ControlNet LoRA on first cold start if not already present (~944 MB)
-UNION_LORA=/comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
-if [ ! -f "$UNION_LORA" ]; then
-    echo "worker-comfyui: Downloading union ControlNet LoRA (~944 MB)..."
-    wget -q --show-progress \
-        https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
-        -O "$UNION_LORA"
-    echo "worker-comfyui: Union ControlNet LoRA downloaded."
-fi
-
 # Default to highvram to keep models in VRAM between requests
 : "${COMFY_LOG_LEVEL:=DEBUG}"
 : "${COMFY_EXTRA_ARGS:=--highvram}"
