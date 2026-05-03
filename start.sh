@@ -11,6 +11,15 @@ if [ ! -d "$CONTROLNET_AUX" ]; then
     pip install --no-cache-dir -r "$CONTROLNET_AUX/requirements.txt"
 fi
 
+# Union ControlNet LoRA (~944 MB) — downloaded once on first start
+UNION_LORA=/comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
+if [ ! -f "$UNION_LORA" ]; then
+    echo "worker-comfyui: Downloading union ControlNet LoRA (~944 MB)..."
+    wget -q \
+        https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
+        -O "$UNION_LORA"
+fi
+
 # Use libtcmalloc for better memory management
 TCMALLOC="$(ldconfig -p | grep -Po 'libtcmalloc.so.\d' | head -n 1)"
 export LD_PRELOAD="${TCMALLOC}"

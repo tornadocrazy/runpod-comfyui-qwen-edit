@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T01:00
+# build trigger: 2026-05-04T02:00
 
 # ─────────────────────────────────────────────────────────────────────────────
 # System packages
@@ -72,11 +72,6 @@ RUN wget -q \
     https://huggingface.co/prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait/resolve/main/HRP_20.safetensors \
     -O /comfyui/models/loras/HRP_20.safetensors
 
-# Qwen Image Union DiffSynth ControlNet LoRA — pose/depth/canny (~944 MB)
-RUN wget -q \
-    https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
-    -O /comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
-
 # Qwen Image Edit diffusion model — fp8 mixed (~7-10 GB)
 RUN wget -q \
     https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
@@ -137,8 +132,8 @@ RUN --mount=type=cache,target=/root/.cache \
 # ─────────────────────────────────────────────────────────────────────────────
 # Patches — P6: parallel prefetch monkey-patch on core ComfyUI loaders
 # ─────────────────────────────────────────────────────────────────────────────
-COPY --chmod=0755 patch_qwen.sh /tmp/patch_qwen.sh
-RUN /tmp/patch_qwen.sh && rm /tmp/patch_qwen.sh
+COPY patch_qwen.sh /tmp/patch_qwen.sh
+RUN chmod +x /tmp/patch_qwen.sh && /tmp/patch_qwen.sh && rm /tmp/patch_qwen.sh
 
 # Pre-generate matplotlib font cache (avoids ~0.5s rebuild on cold start)
 RUN python3 -c "from matplotlib.font_manager import FontManager; FontManager()" || true
@@ -147,4 +142,5 @@ RUN python3 -c "from matplotlib.font_manager import FontManager; FontManager()" 
 # Warmup + start scripts
 # ─────────────────────────────────────────────────────────────────────────────
 COPY warmup_gfpgan.py warmup_qwen.py warmup_insightface.py /
-COPY --chmod=0755 start.sh /start.sh
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
