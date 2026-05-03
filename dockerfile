@@ -1,4 +1,5 @@
 FROM runpod/worker-comfyui:5.4.1-base
+# build trigger: 2026-05-03T15:50
 
 # ─────────────────────────────────────────────────────────────────────────────
 # System packages
