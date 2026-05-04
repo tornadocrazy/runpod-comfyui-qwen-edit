@@ -11,6 +11,13 @@ if [ ! -d "$CONTROLNET_AUX" ]; then
     pip install --no-cache-dir -r "$CONTROLNET_AUX/requirements.txt"
 fi
 
+# comfyui_qwen_image_edit_adv — fixes encoding/scaling misalignment in TextEncodeQwenImageEditPlus
+QWEN_ADV=/comfyui/custom_nodes/comfyui_qwen_image_edit_adv
+if [ ! -d "$QWEN_ADV" ]; then
+    echo "worker-comfyui: Installing comfyui_qwen_image_edit_adv..."
+    git clone --depth 1 https://github.com/lenML/comfyui_qwen_image_edit_adv "$QWEN_ADV"
+fi
+
 # Union ControlNet LoRA (~944 MB) — downloaded once on first start
 UNION_LORA=/comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
 if [ ! -f "$UNION_LORA" ]; then
