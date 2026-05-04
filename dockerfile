@@ -1,8 +1,13 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T18:12
+# build trigger: 2026-05-04T18:15
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
+
+# CUDA arches our endpoint allows: Ada (L40 sm_89), Hopper (H200 sm_90),
+# Blackwell (RTX PRO 6000 sm_120). Tells torch + sageattention which kernels
+# to JIT/compile for so we don't fall back to slower paths at runtime.
+ENV TORCH_CUDA_ARCH_LIST="8.9;9.0;12.0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # System packages
