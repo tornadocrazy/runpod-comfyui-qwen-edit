@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T19:52
+# build trigger: 2026-05-04T20:15
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -64,14 +64,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip uninstall onnxruntime onnxruntime-gpu && \
     uv pip install --reinstall onnxruntime-gpu==1.22.0 && \
     python -c "import onnxruntime; assert hasattr(onnxruntime, 'InferenceSession'), 'onnxruntime broken'; print('onnxruntime OK:', onnxruntime.__version__)"
-
-# SageAttention — 2-3x faster attention on Hopper/Blackwell vs PyTorch SDPA.
-# ComfyUI auto-uses it when --use-sage-attention is passed. If the wheel fails
-# to install on this CUDA/torch combo, the build continues without (we keep
-# pytorch attention as the fallback rather than failing the whole image).
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install sageattention || \
-    echo "WARN: sageattention install failed — falling back to pytorch attention"
 
 # Bypass ReActor NSFW filter — avoids downloading large classifier at runtime
 COPY reactor_sfw.py /comfyui/custom_nodes/comfyui-reactor/scripts/reactor_sfw.py

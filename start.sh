@@ -14,13 +14,11 @@ comfy-manager-set-mode offline || echo "worker-comfyui - Could not set ComfyUI-M
 echo "worker-comfyui: Starting ComfyUI (Qwen Edit)"
 
 # Default to highvram to keep models in VRAM between requests.
-# --use-sage-attention enables SageAttention if installed (2-3x faster
-# attention vs default pytorch SDPA on Hopper/Blackwell GPUs).
 # COMFY_LOG_LEVEL=INFO suppresses the per-module "lowvram: loaded module
 # regularly" + "Backend eager selected for dequantize_per_tensor_fp8" spam
 # (~120 lines per cold start) — it's DEBUG noise, not actual lowvram mode.
 : "${COMFY_LOG_LEVEL:=INFO}"
-: "${COMFY_EXTRA_ARGS:=--highvram --use-sage-attention}"
+: "${COMFY_EXTRA_ARGS:=--highvram}"
 
 if [ "$SERVE_API_LOCALLY" == "true" ]; then
     python -u /comfyui/main.py --disable-auto-launch --disable-metadata --listen --verbose "${COMFY_LOG_LEVEL}" --log-stdout ${COMFY_EXTRA_ARGS} &
