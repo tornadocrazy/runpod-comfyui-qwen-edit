@@ -1,25 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-# ── Runtime model downloads (all nodes pre-installed in image) ──
-
-# Union ControlNet LoRA (~944 MB) — downloaded once on first start
-UNION_LORA=/comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
-if [ ! -f "$UNION_LORA" ]; then
-    echo "worker-comfyui: Downloading union ControlNet LoRA (~944 MB)..."
-    wget -q \
-        https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
-        -O "$UNION_LORA"
-fi
-
-# Fusion LoRA (~236 MB) — blends subject into background naturally
-FUSION_LORA=/comfyui/models/loras/qwen_image_edit_fusion.safetensors
-if [ ! -f "$FUSION_LORA" ]; then
-    echo "worker-comfyui: Downloading Fusion LoRA (~236 MB)..."
-    wget -q \
-        https://huggingface.co/vantagewithai/Qwen_Image_Edit_LoRAs/resolve/main/qwen_image_edit_fusion.safetensors \
-        -O "$FUSION_LORA"
-fi
+# All models (including Union ControlNet + Fusion LoRAs) are baked into the
+# image — no runtime downloads needed.
 
 # Use libtcmalloc for better memory management
 TCMALLOC="$(ldconfig -p | grep -Po 'libtcmalloc.so.\d' | head -n 1)"
