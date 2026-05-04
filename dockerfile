@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T18:24
+# build trigger: 2026-05-04T18:32
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -9,12 +9,9 @@ ENV VIRTUAL_ENV=/opt/venv
 # to JIT/compile for so we don't fall back to slower paths at runtime.
 ENV TORCH_CUDA_ARCH_LIST="8.9;9.0;12.0"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# System packages
-# ─────────────────────────────────────────────────────────────────────────────
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends wget unzip && \
-    rm -rf /var/lib/apt/lists/*
+# Skipped apt-get update + install — base image already has wget; unzip is
+# replaced with a Python stdlib call below for the one .zip we need to extract.
+# Drops ~30s from every build.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Python dependencies for ReActor face swap
@@ -104,11 +101,12 @@ RUN wget -q \
 # ─────────────────────────────────────────────────────────────────────────────
 
 # InsightFace buffalo_l face detector/recognizer (~275 MB)
+# Use python -m zipfile (stdlib) instead of `unzip` to avoid an apt install.
 RUN comfy model download \
         --url https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip \
         --relative-path models/insightface/models --filename buffalo_l.zip && \
-    unzip /comfyui/models/insightface/models/buffalo_l.zip \
-          -d /comfyui/models/insightface/models/buffalo_l && \
+    python -m zipfile -e /comfyui/models/insightface/models/buffalo_l.zip \
+        /comfyui/models/insightface/models/buffalo_l && \
     rm /comfyui/models/insightface/models/buffalo_l.zip
 
 # Inswapper face swap model (~550 MB)
