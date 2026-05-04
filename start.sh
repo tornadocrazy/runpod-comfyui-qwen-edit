@@ -20,6 +20,15 @@ if [ ! -f "$UNION_LORA" ]; then
         -O "$UNION_LORA"
 fi
 
+# Fusion LoRA (~236 MB) — blends subject into background naturally
+FUSION_LORA=/comfyui/models/loras/qwen_image_edit_fusion.safetensors
+if [ ! -f "$FUSION_LORA" ]; then
+    echo "worker-comfyui: Downloading Fusion LoRA (~236 MB)..."
+    wget -q \
+        https://huggingface.co/vantagewithai/Qwen_Image_Edit_LoRAs/resolve/main/qwen_image_edit_fusion.safetensors \
+        -O "$FUSION_LORA"
+fi
+
 # Use libtcmalloc for better memory management
 TCMALLOC="$(ldconfig -p | grep -Po 'libtcmalloc.so.\d' | head -n 1)"
 export LD_PRELOAD="${TCMALLOC}"
