@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T19:05
+# build trigger: 2026-05-04T19:17
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -17,18 +17,22 @@ ENV TORCH_CUDA_ARCH_LIST="8.9;9.0;12.0"
 # enable it for all huggingface-cli downloads. Big files (14 GB diffusion,
 # 7 GB text encoder) drop from 1-5 min on wget single-connection to ~30-60s
 # consistently with 8-16 parallel chunks.
-RUN uv pip install --no-cache hf_transfer
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install hf_transfer
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Python dependencies for ReActor face swap
-# Pre-built insightface wheel avoids C compilation issues
+# Pre-built insightface wheel avoids C compilation issues.
+# Pinned versions kill uv's version-search loop (was 4-5 min just to resolve).
+# BuildKit cache mount reuses uv's package metadata cache between builds.
 # ─────────────────────────────────────────────────────────────────────────────
-RUN uv pip install --no-cache \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install \
     https://huggingface.co/iwr-redmond/linux-wheels/resolve/main/insightface-0.7.3-cp312-cp312-linux_x86_64.whl \
     onnxruntime-gpu==1.22.0 \
-    facexlib \
-    gfpgan
+    facexlib==0.3.0 \
+    gfpgan==1.3.8
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Custom nodes required by Qwen Edit workflows
@@ -46,20 +50,22 @@ RUN cd /comfyui/custom_nodes && \
 # After node deps drag in CPU onnxruntime, force a clean reinstall of -gpu so
 # insightface gets a working InferenceSession (otherwise CPU/GPU share the
 # same `onnxruntime/` package dir and the uninstall corrupts the namespace).
-RUN uv pip install --no-cache \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install \
         -r /comfyui/custom_nodes/ComfyUI-KJNodes/requirements.txt \
         -r /comfyui/custom_nodes/comfyui-reactor/requirements.txt \
         -r /comfyui/custom_nodes/ComfyUI-RMBG/requirements.txt \
         -r /comfyui/custom_nodes/comfyui_controlnet_aux/requirements.txt && \
     uv pip uninstall onnxruntime onnxruntime-gpu && \
-    uv pip install --no-cache --reinstall onnxruntime-gpu==1.22.0 && \
+    uv pip install --reinstall onnxruntime-gpu==1.22.0 && \
     python -c "import onnxruntime; assert hasattr(onnxruntime, 'InferenceSession'), 'onnxruntime broken'; print('onnxruntime OK:', onnxruntime.__version__)"
 
 # SageAttention — 2-3x faster attention on Hopper/Blackwell vs PyTorch SDPA.
 # ComfyUI auto-uses it when --use-sage-attention is passed. If the wheel fails
 # to install on this CUDA/torch combo, the build continues without (we keep
 # pytorch attention as the fallback rather than failing the whole image).
-RUN uv pip install --no-cache sageattention || \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install sageattention || \
     echo "WARN: sageattention install failed — falling back to pytorch attention"
 
 # Bypass ReActor NSFW filter — avoids downloading large classifier at runtime
