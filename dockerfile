@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T20:15
+# build trigger: 2026-05-04T20:16
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -37,7 +37,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install \
     onnxruntime-gpu==1.22.0 \
     facexlib==0.3.0 \
-    gfpgan==1.3.8
+    gfpgan==1.3.8 \
+    basicsr==1.4.2 \
+    filterpy==1.4.5 \
+    tb-nightly \
+    numba \
+    llvmlite
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Custom nodes required by Qwen Edit workflows
