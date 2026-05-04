@@ -27,15 +27,14 @@ RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch && \
     git clone --depth 1 https://github.com/Gourieff/ComfyUI-ReActor comfyui-reactor && \
     git clone --depth 1 https://github.com/1038lab/ComfyUI-RMBG && \
-    git clone --depth 1 https://github.com/Fannovel16/comfyui_controlnet_aux && \
     git clone --depth 1 https://github.com/lenML/comfyui_qwen_image_edit_adv
 
 # One pip resolver pass for all node requirements + pin GPU onnxruntime
+# controlnet_aux excluded — its heavy deps push build past 30-min limit; installed at runtime
 RUN pip install --no-cache-dir \
         -r /comfyui/custom_nodes/ComfyUI-KJNodes/requirements.txt \
         -r /comfyui/custom_nodes/comfyui-reactor/requirements.txt \
-        -r /comfyui/custom_nodes/ComfyUI-RMBG/requirements.txt \
-        -r /comfyui/custom_nodes/comfyui_controlnet_aux/requirements.txt && \
+        -r /comfyui/custom_nodes/ComfyUI-RMBG/requirements.txt && \
     pip uninstall -y onnxruntime && \
     pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.22.0
 

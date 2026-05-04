@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
-# ── Runtime model downloads (nodes are pre-installed in the image) ──
+# ── Runtime installs + model downloads ──
+
+# controlnet_aux — heavy deps excluded from build to stay under 30-min limit
+CONTROLNET_AUX=/comfyui/custom_nodes/comfyui_controlnet_aux
+if [ ! -d "$CONTROLNET_AUX" ]; then
+    echo "worker-comfyui: Installing comfyui_controlnet_aux..."
+    git clone --depth 1 https://github.com/Fannovel16/comfyui_controlnet_aux "$CONTROLNET_AUX"
+    pip install --no-cache-dir -r "$CONTROLNET_AUX/requirements.txt"
+fi
 
 # Union ControlNet LoRA (~944 MB) — downloaded once on first start
 UNION_LORA=/comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
