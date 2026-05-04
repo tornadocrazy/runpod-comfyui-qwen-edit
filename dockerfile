@@ -1,6 +1,9 @@
 FROM runpod/worker-comfyui:5.8.5-base
 # build trigger: 2026-05-04T02:00
 
+# uv is pre-installed in the base image; point it at the base venv
+ENV VIRTUAL_ENV=/opt/venv
+
 # ─────────────────────────────────────────────────────────────────────────────
 # System packages
 # ─────────────────────────────────────────────────────────────────────────────
@@ -8,14 +11,11 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends wget unzip && \
     rm -rf /var/lib/apt/lists/*
 
-# Install uv — Rust-based pip replacement (~10x faster resolution)
-RUN pip install uv
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Python dependencies for ReActor face swap
 # Pre-built insightface wheel avoids C compilation issues
 # ─────────────────────────────────────────────────────────────────────────────
-RUN uv pip install --system --no-cache \
+RUN uv pip install --no-cache \
     https://huggingface.co/iwr-redmond/linux-wheels/resolve/main/insightface-0.7.3-cp312-cp312-linux_x86_64.whl \
     onnxruntime-gpu==1.22.0 \
     facexlib \
@@ -34,13 +34,13 @@ RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/lenML/comfyui_qwen_image_edit_adv
 
 # One uv resolver pass for all node requirements + pin GPU onnxruntime
-RUN uv pip install --system --no-cache \
+RUN uv pip install --no-cache \
         -r /comfyui/custom_nodes/ComfyUI-KJNodes/requirements.txt \
         -r /comfyui/custom_nodes/comfyui-reactor/requirements.txt \
         -r /comfyui/custom_nodes/ComfyUI-RMBG/requirements.txt \
         -r /comfyui/custom_nodes/comfyui_controlnet_aux/requirements.txt && \
-    uv pip uninstall --system onnxruntime && \
-    uv pip install --system --no-cache onnxruntime-gpu==1.22.0
+    uv pip uninstall onnxruntime && \
+    uv pip install --no-cache onnxruntime-gpu==1.22.0
 
 # Bypass ReActor NSFW filter — avoids downloading large classifier at runtime
 COPY reactor_sfw.py /comfyui/custom_nodes/comfyui-reactor/scripts/reactor_sfw.py
