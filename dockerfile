@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T16:27
+# build trigger: 2026-05-04T17:58
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -34,13 +34,17 @@ RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/lenML/comfyui_qwen_image_edit_adv
 
 # One uv resolver pass for all node requirements + pin GPU onnxruntime
+# After node deps drag in CPU onnxruntime, force a clean reinstall of -gpu so
+# insightface gets a working InferenceSession (otherwise CPU/GPU share the
+# same `onnxruntime/` package dir and the uninstall corrupts the namespace).
 RUN uv pip install --no-cache \
         -r /comfyui/custom_nodes/ComfyUI-KJNodes/requirements.txt \
         -r /comfyui/custom_nodes/comfyui-reactor/requirements.txt \
         -r /comfyui/custom_nodes/ComfyUI-RMBG/requirements.txt \
         -r /comfyui/custom_nodes/comfyui_controlnet_aux/requirements.txt && \
-    uv pip uninstall onnxruntime && \
-    uv pip install --no-cache onnxruntime-gpu==1.22.0
+    uv pip uninstall onnxruntime onnxruntime-gpu && \
+    uv pip install --no-cache --reinstall onnxruntime-gpu==1.22.0 && \
+    python -c "import onnxruntime; assert hasattr(onnxruntime, 'InferenceSession'), 'onnxruntime broken'; print('onnxruntime OK:', onnxruntime.__version__)"
 
 # Bypass ReActor NSFW filter — avoids downloading large classifier at runtime
 COPY reactor_sfw.py /comfyui/custom_nodes/comfyui-reactor/scripts/reactor_sfw.py
