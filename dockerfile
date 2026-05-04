@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T19:17
+# build trigger: 2026-05-04T19:22
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -85,7 +85,7 @@ RUN mkdir -p /comfyui/models/text_encoders \
              /comfyui/models/loras
 
 # Qwen 2.5 VL 7B text encoder — fp8 (~7 GB)
-RUN huggingface-cli download Comfy-Org/Qwen-Image_ComfyUI \
+RUN hf download Comfy-Org/Qwen-Image_ComfyUI \
         split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
         --local-dir /tmp/hf && \
     mv /tmp/hf/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
@@ -98,7 +98,7 @@ RUN wget -q \
     -O /comfyui/models/vae/qwen_image_vae.safetensors
 
 # Lightning LoRA — 4-step fast inference (bf16) (~1.5 GB)
-RUN huggingface-cli download lightx2v/Qwen-Image-Edit-2511-Lightning \
+RUN hf download lightx2v/Qwen-Image-Edit-2511-Lightning \
         Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors \
         --local-dir /comfyui/models/loras
 
@@ -108,7 +108,7 @@ RUN wget -q \
     -O /comfyui/models/loras/HRP_20.safetensors
 
 # Union ControlNet LoRA (~944 MB) — DWPose / OpenPose conditioning
-RUN huggingface-cli download Comfy-Org/Qwen-Image-DiffSynth-ControlNets \
+RUN hf download Comfy-Org/Qwen-Image-DiffSynth-ControlNets \
         split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
         --local-dir /tmp/hf && \
     mv /tmp/hf/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
@@ -121,7 +121,7 @@ RUN wget -q \
     -O /comfyui/models/loras/qwen_image_edit_fusion.safetensors
 
 # Qwen Image Edit diffusion model — fp8 mixed (~14 GB) — biggest file, biggest win from hf_transfer
-RUN huggingface-cli download Comfy-Org/Qwen-Image-Edit_ComfyUI \
+RUN hf download Comfy-Org/Qwen-Image-Edit_ComfyUI \
         split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
         --local-dir /tmp/hf && \
     mv /tmp/hf/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
