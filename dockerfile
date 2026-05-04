@@ -8,11 +8,14 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends wget unzip && \
     rm -rf /var/lib/apt/lists/*
 
+# Install uv — Rust-based pip replacement (~10x faster resolution)
+RUN pip install uv
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Python dependencies for ReActor face swap
 # Pre-built insightface wheel avoids C compilation issues
 # ─────────────────────────────────────────────────────────────────────────────
-RUN pip install --no-cache-dir \
+RUN uv pip install --system --no-cache \
     https://huggingface.co/iwr-redmond/linux-wheels/resolve/main/insightface-0.7.3-cp312-cp312-linux_x86_64.whl \
     onnxruntime-gpu==1.22.0 \
     facexlib \
@@ -27,16 +30,17 @@ RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch && \
     git clone --depth 1 https://github.com/Gourieff/ComfyUI-ReActor comfyui-reactor && \
     git clone --depth 1 https://github.com/1038lab/ComfyUI-RMBG && \
+    git clone --depth 1 https://github.com/Fannovel16/comfyui_controlnet_aux && \
     git clone --depth 1 https://github.com/lenML/comfyui_qwen_image_edit_adv
 
-# One pip resolver pass for all node requirements + pin GPU onnxruntime
-# controlnet_aux excluded — its heavy deps push build past 30-min limit; installed at runtime
-RUN pip install --no-cache-dir \
+# One uv resolver pass for all node requirements + pin GPU onnxruntime
+RUN uv pip install --system --no-cache \
         -r /comfyui/custom_nodes/ComfyUI-KJNodes/requirements.txt \
         -r /comfyui/custom_nodes/comfyui-reactor/requirements.txt \
-        -r /comfyui/custom_nodes/ComfyUI-RMBG/requirements.txt && \
-    pip uninstall -y onnxruntime && \
-    pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.22.0
+        -r /comfyui/custom_nodes/ComfyUI-RMBG/requirements.txt \
+        -r /comfyui/custom_nodes/comfyui_controlnet_aux/requirements.txt && \
+    uv pip uninstall --system onnxruntime && \
+    uv pip install --system --no-cache onnxruntime-gpu==1.22.0
 
 # Bypass ReActor NSFW filter — avoids downloading large classifier at runtime
 COPY reactor_sfw.py /comfyui/custom_nodes/comfyui-reactor/scripts/reactor_sfw.py
