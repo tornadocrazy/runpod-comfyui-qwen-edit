@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T19:32
+# build trigger: 2026-05-04T19:52
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -24,12 +24,17 @@ ENV HF_HUB_ENABLE_HF_TRANSFER=1
 # ─────────────────────────────────────────────────────────────────────────────
 # Python dependencies for ReActor face swap
 # Pre-built insightface wheel avoids C compilation issues.
-# Pinned versions kill uv's version-search loop (was 4-5 min just to resolve).
-# BuildKit cache mount reuses uv's package metadata cache between builds.
+# Split into two installs: the wheel uses --no-deps (its transitive deps —
+# numpy, scipy, cython, etc. — are all in the base image already), so uv
+# doesn't pull them into the resolver graph. Then a smaller separate install
+# for the pinned packages that need their dep trees resolved.
 # ─────────────────────────────────────────────────────────────────────────────
 RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --no-deps \
+    https://huggingface.co/iwr-redmond/linux-wheels/resolve/main/insightface-0.7.3-cp312-cp312-linux_x86_64.whl
+
+RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install \
-    https://huggingface.co/iwr-redmond/linux-wheels/resolve/main/insightface-0.7.3-cp312-cp312-linux_x86_64.whl \
     onnxruntime-gpu==1.22.0 \
     facexlib==0.3.0 \
     gfpgan==1.3.8
