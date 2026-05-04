@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T18:42
+# build trigger: 2026-05-04T19:05
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -12,6 +12,13 @@ ENV TORCH_CUDA_ARCH_LIST="8.9;9.0;12.0"
 # Skipped apt-get update + install — base image already has wget; unzip is
 # replaced with a Python stdlib call below for the one .zip we need to extract.
 # Drops ~30s from every build.
+
+# Install hf_transfer (Rust-based parallel multi-connection downloader) and
+# enable it for all huggingface-cli downloads. Big files (14 GB diffusion,
+# 7 GB text encoder) drop from 1-5 min on wget single-connection to ~30-60s
+# consistently with 8-16 parallel chunks.
+RUN uv pip install --no-cache hf_transfer
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Python dependencies for ReActor face swap
@@ -72,19 +79,22 @@ RUN mkdir -p /comfyui/models/text_encoders \
              /comfyui/models/loras
 
 # Qwen 2.5 VL 7B text encoder — fp8 (~7 GB)
-RUN wget -q \
-    https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
-    -O /comfyui/models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors
+RUN huggingface-cli download Comfy-Org/Qwen-Image_ComfyUI \
+        split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
+        --local-dir /tmp/hf && \
+    mv /tmp/hf/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
+       /comfyui/models/text_encoders/ && \
+    rm -rf /tmp/hf
 
 # Qwen Image VAE
 RUN wget -q \
     https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors \
     -O /comfyui/models/vae/qwen_image_vae.safetensors
 
-# Lightning LoRA — 4-step fast inference (bf16)
-RUN wget -q \
-    https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/resolve/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors \
-    -O /comfyui/models/loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
+# Lightning LoRA — 4-step fast inference (bf16) (~1.5 GB)
+RUN huggingface-cli download lightx2v/Qwen-Image-Edit-2511-Lightning \
+        Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors \
+        --local-dir /comfyui/models/loras
 
 # Hyper-Realistic Portrait identity LoRA — rank 20 (~225 MB)
 RUN wget -q \
@@ -92,19 +102,25 @@ RUN wget -q \
     -O /comfyui/models/loras/HRP_20.safetensors
 
 # Union ControlNet LoRA (~944 MB) — DWPose / OpenPose conditioning
-RUN wget -q \
-    https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
-    -O /comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
+RUN huggingface-cli download Comfy-Org/Qwen-Image-DiffSynth-ControlNets \
+        split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
+        --local-dir /tmp/hf && \
+    mv /tmp/hf/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
+       /comfyui/models/loras/ && \
+    rm -rf /tmp/hf
 
 # Fusion LoRA (~236 MB) — blends subject into background naturally
 RUN wget -q \
     https://huggingface.co/vantagewithai/Qwen_Image_Edit_LoRAs/resolve/main/qwen_image_edit_fusion.safetensors \
     -O /comfyui/models/loras/qwen_image_edit_fusion.safetensors
 
-# Qwen Image Edit diffusion model — fp8 mixed (~7-10 GB)
-RUN wget -q \
-    https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
-    -O /comfyui/models/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors
+# Qwen Image Edit diffusion model — fp8 mixed (~14 GB) — biggest file, biggest win from hf_transfer
+RUN huggingface-cli download Comfy-Org/Qwen-Image-Edit_ComfyUI \
+        split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
+        --local-dir /tmp/hf && \
+    mv /tmp/hf/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
+       /comfyui/models/diffusion_models/ && \
+    rm -rf /tmp/hf
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ReActor models — inswapper + buffalo_l + face detection weights
