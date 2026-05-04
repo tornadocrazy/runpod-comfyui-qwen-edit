@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T19:22
+# build trigger: 2026-05-04T19:32
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -98,9 +98,9 @@ RUN wget -q \
     -O /comfyui/models/vae/qwen_image_vae.safetensors
 
 # Lightning LoRA — 4-step fast inference (bf16) (~1.5 GB)
-RUN hf download lightx2v/Qwen-Image-Edit-2511-Lightning \
-        Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors \
-        --local-dir /comfyui/models/loras
+RUN wget -q \
+    https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/resolve/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors \
+    -O /comfyui/models/loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
 
 # Hyper-Realistic Portrait identity LoRA — rank 20 (~225 MB)
 RUN wget -q \
@@ -108,12 +108,9 @@ RUN wget -q \
     -O /comfyui/models/loras/HRP_20.safetensors
 
 # Union ControlNet LoRA (~944 MB) — DWPose / OpenPose conditioning
-RUN hf download Comfy-Org/Qwen-Image-DiffSynth-ControlNets \
-        split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
-        --local-dir /tmp/hf && \
-    mv /tmp/hf/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
-       /comfyui/models/loras/ && \
-    rm -rf /tmp/hf
+RUN wget -q \
+    https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
+    -O /comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
 
 # Fusion LoRA (~236 MB) — blends subject into background naturally
 RUN wget -q \
