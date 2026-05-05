@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-04T20:51
+# build trigger: 2026-05-05T00:37
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -108,6 +108,11 @@ RUN wget -q \
 RUN wget -q \
     https://huggingface.co/prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait/resolve/main/HRP_20.safetensors \
     -O /comfyui/models/loras/HRP_20.safetensors
+
+# Qwen Image Edit Inpaint LoRA (~590 MB) — used by inpaint workflows
+RUN wget -q \
+    https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
+    -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
 
 # Union ControlNet LoRA (~944 MB) — DWPose / OpenPose conditioning
 RUN wget -q \
