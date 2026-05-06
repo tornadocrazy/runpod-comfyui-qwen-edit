@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-07T02:30 — add gcc for SageAttention/Triton JIT
+# build trigger: 2026-05-07T02:50 — add python3-dev for Triton's Python.h
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -20,6 +20,7 @@ ENV TORCH_CUDA_ARCH_LIST="8.9;9.0;12.0"
 # speedup we paid the install cost for.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install hf_transfer (Rust-based parallel multi-connection downloader) and
