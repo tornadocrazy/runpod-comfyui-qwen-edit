@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-06T05:55
+# build trigger: 2026-05-06T06:30
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -70,6 +70,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Bypass ReActor NSFW filter — avoids downloading large classifier at runtime
 COPY reactor_sfw.py /comfyui/custom_nodes/comfyui-reactor/scripts/reactor_sfw.py
+
+# ReActor source-face pre-analysis plugin — kicks off InsightFace analysis in
+# a background thread when a prompt arrives, populating ReActor's MD5 cache
+# before KSampler finishes. Saves ~4s per job (parallel with KSampler).
+COPY reactor_preanalyze /comfyui/custom_nodes/reactor_preanalyze
 
 # Remove unused nodes to speed up startup
 RUN rm -rf /comfyui/comfy_api_nodes
