@@ -1,21 +1,60 @@
 """
-ReActor source-face pre-analysis (parallel with KSampler).
+ReActor source-face pre-analysis (parallel with KSampler) — CPU only.
 
 Hooks ComfyUI's POST /prompt endpoint via aiohttp middleware. When a prompt
 arrives that contains a ReActorFaceSwap node, this fires off a background
-thread that runs ReActor's analyze_faces() on the source image and populates
+thread that runs InsightFace face detection on the source image and populates
 ReActor's module-level cache (SOURCE_FACES + SOURCE_IMAGE_HASH).
 
-By the time KSampler + VAEDecode finish (~12s) and ReActorFaceSwap fires,
-the analysis (~4s) is already done and sitting in cache → ReActor's existing
-MD5-hash check hits → swap proceeds without re-analyzing.
+CRITICAL: the analyzer here uses CPUExecutionProvider, NOT CUDA. PyTorch's
+KSampler internally uses CUDA graph capture; concurrent GPU operations from
+other threads break the capture with cudaErrorStreamCaptureUnsupported.
+Running the analyze on CPU sidesteps the conflict entirely — KSampler keeps
+the GPU, our pre-analysis works the CPU in parallel, no shared state.
 
-Net: ~4s saved per job. No workflow changes needed.
+By the time KSampler + VAEDecode finish (~12s) and ReActorFaceSwap fires,
+the analysis (~3-5s on CPU) is already done and sitting in cache → ReActor's
+built-in MD5-hash check hits → swap proceeds without re-analyzing. The
+actual GPU swap (INSwapper) inside ReActorFaceSwap continues to use CUDA
+as before.
+
+Net: ~3-4s saved per job. No workflow changes needed.
 """
 import os
 import sys
 import threading
 import traceback
+
+# Lazy-initialized CPU-only InsightFace analyzer. Created on first job use,
+# reused thereafter. Holds buffalo_l (det + landmarks + embedding) on CPU.
+_cpu_analyzer = None
+_cpu_analyzer_lock = threading.Lock()
+
+
+def _get_cpu_analyzer():
+    """Build (once) and return a CPU-only ReActorFaceAnalysis."""
+    global _cpu_analyzer
+    if _cpu_analyzer is not None:
+        return _cpu_analyzer
+    with _cpu_analyzer_lock:
+        if _cpu_analyzer is not None:
+            return _cpu_analyzer
+        reactor_dir = "/comfyui/custom_nodes/comfyui-reactor"
+        if reactor_dir not in sys.path:
+            sys.path.insert(0, reactor_dir)
+        from reactor_core.analyzer import ReActorFaceAnalysis
+        import folder_paths
+
+        insightface_path = os.path.join(folder_paths.models_dir, "insightface")
+        analyzer = ReActorFaceAnalysis(
+            name="buffalo_l",
+            providers=["CPUExecutionProvider"],
+            root=insightface_path,
+        )
+        analyzer.prepare(ctx_id=-1, det_size=(640, 640))
+        _cpu_analyzer = analyzer
+        print("[reactor_preanalyze] CPU analyzer initialized (buffalo_l)", flush=True)
+        return _cpu_analyzer
 
 
 def _resolve_source_filename(prompt_data):
@@ -68,11 +107,17 @@ def _do_preanalyze(image_filename):
             print(f"[reactor_preanalyze] cache hit for {image_filename} — skipping", flush=True)
             return
 
-        print(f"[reactor_preanalyze] analyzing {image_filename} in background...", flush=True)
-        faces = reactor_swapper.analyze_faces(img_bgr)
+        print(f"[reactor_preanalyze] analyzing {image_filename} on CPU (parallel with KSampler)...", flush=True)
+        analyzer = _get_cpu_analyzer()
+        faces = analyzer.get(img_bgr)
+        # If detection failed at 640, retry at 320 (matches ReActor's analyze_faces fallback)
+        if not faces:
+            analyzer.prepare(ctx_id=-1, det_size=(320, 320))
+            faces = analyzer.get(img_bgr)
+            analyzer.prepare(ctx_id=-1, det_size=(640, 640))
         reactor_swapper.SOURCE_IMAGE_HASH = new_hash
         reactor_swapper.SOURCE_FACES = faces
-        print(f"[reactor_preanalyze] cache populated for {image_filename}", flush=True)
+        print(f"[reactor_preanalyze] cache populated for {image_filename} ({len(faces) if faces else 0} face(s))", flush=True)
     except Exception as e:
         print(f"[reactor_preanalyze] error: {e}", flush=True)
         traceback.print_exc()
