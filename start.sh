@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 set -e
 
-# All models (including Union ControlNet + Fusion LoRAs) are baked into the
-# image — no runtime downloads needed.
+# Models live in RunPod's HF Model Cache (mounted at /runpod-volume/...) —
+# we symlink them into ComfyUI's expected paths via /link_models.sh below
+# before any warmups try to read them.
+echo "worker-comfyui: Linking models from RunPod Model Cache..."
+/link_models.sh
+echo "worker-comfyui: Models linked"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Disk-read-early: warm OS page cache for big model files in parallel with
-# ComfyUI startup. When ComfyUI later loads these files from disk, the read
-# is from RAM (page cache) instead of network volume → 5-9s saved on cold
-# start. The reads happen in background; ComfyUI startup proceeds normally.
+# ComfyUI startup. The cache files mount via overlayfs from host SSD; first
+# read is ~17s for the 19 GB UNet (cache mount cold), repeat reads are
+# ~2s (page cache hot). Running this in background while ComfyUI boots
+# means the warmup workflow can read at RAM speed. Now reads through the
+# symlinks created by /link_models.sh.
 # ─────────────────────────────────────────────────────────────────────────────
 (
     cat /comfyui/models/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors > /dev/null 2>&1 || true

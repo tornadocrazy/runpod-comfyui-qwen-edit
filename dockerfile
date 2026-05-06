@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-06T08:30
+# build trigger: 2026-05-07T01:30 — slim image, models from RunPod Model Cache
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -80,50 +80,29 @@ COPY reactor_preanalyze /comfyui/custom_nodes/reactor_preanalyze
 RUN rm -rf /comfyui/comfy_api_nodes
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Models — plain wget, one per layer for Docker cache
+# Models — NOT baked into the image. Pulled at runtime via RunPod's Model
+# Cache feature (HF model ID: techwavelaps/qwen-ai-inpainter), then linked
+# into ComfyUI's expected paths by /link_models.sh at boot.
+#
+# This keeps the image small (~3 GB instead of 25 GB):
+#   - Faster GHCR builds (~3 min instead of 17 min)
+#   - Faster image pulls on cold workers (less throttle/retry surface)
+#   - Models live ONCE per host (overlay-mounted from RunPod's cache)
+#     instead of duplicating in every worker's image layer
+#
+# Required endpoint setting on RunPod:
+#   Endpoint > Model Caching > techwavelaps/qwen-ai-inpainter
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Ensure model directories exist (some may not be in base image)
+# Ensure model directories exist so the symlinks have parents to land in.
 RUN mkdir -p /comfyui/models/text_encoders \
              /comfyui/models/diffusion_models \
              /comfyui/models/vae \
              /comfyui/models/loras
 
-# Qwen 2.5 VL 7B text encoder — fp8 (~7 GB)
-RUN hf download Comfy-Org/Qwen-Image_ComfyUI \
-        split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
-        --local-dir /tmp/hf && \
-    mv /tmp/hf/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
-       /comfyui/models/text_encoders/ && \
-    rm -rf /tmp/hf
-
-# Qwen Image VAE
-RUN wget -q \
-    https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors \
-    -O /comfyui/models/vae/qwen_image_vae.safetensors
-
-# Lightning LoRA — 4-step fast inference (bf16) (~1.5 GB)
-RUN wget -q \
-    https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/resolve/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors \
-    -O /comfyui/models/loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
-
-# Hyper-Realistic Portrait identity LoRA — rank 20 (~225 MB)
-RUN wget -q \
-    https://huggingface.co/prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait/resolve/main/HRP_20.safetensors \
-    -O /comfyui/models/loras/HRP_20.safetensors
-
-# Qwen Image Edit Inpaint LoRA (~590 MB) — used by inpaint workflows
-RUN wget -q \
-    https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
-    -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
-
-# Qwen Image Edit diffusion model — fp8 mixed (~14 GB) — biggest file, biggest win from hf_transfer
-RUN hf download Comfy-Org/Qwen-Image-Edit_ComfyUI \
-        split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
-        --local-dir /tmp/hf && \
-    mv /tmp/hf/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors \
-       /comfyui/models/diffusion_models/ && \
-    rm -rf /tmp/hf
+# Symlink script invoked by start.sh before warmups run.
+COPY link_models.sh /link_models.sh
+RUN chmod +x /link_models.sh
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ReActor models — inswapper + buffalo_l + face detection weights

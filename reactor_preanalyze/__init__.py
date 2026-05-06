@@ -115,12 +115,91 @@ def _do_preanalyze(image_filename):
             analyzer.prepare(ctx_id=-1, det_size=(320, 320))
             faces = analyzer.get(img_bgr)
             analyzer.prepare(ctx_id=-1, det_size=(640, 640))
-        reactor_swapper.SOURCE_IMAGE_HASH = new_hash
+        # ORDER MATTERS: write FACES first, then HASH. ReActor's read sequence is:
+        #   1. compute md5 of incoming source_img
+        #   2. compare to SOURCE_IMAGE_HASH → source_image_same?
+        #   3. if source_image_same: use SOURCE_FACES
+        # If we wrote HASH first, there's a race where ReActor sees the new hash
+        # match but reads stale SOURCE_FACES from a prior face → wrong identity in
+        # the swap. Writing FACES first ensures the worst-case intermediate state
+        # is "old hash + new faces" → hash mismatch → ReActor re-analyzes from the
+        # actual source image → still correct.
         reactor_swapper.SOURCE_FACES = faces
+        reactor_swapper.SOURCE_IMAGE_HASH = new_hash
         print(f"[reactor_preanalyze] cache populated for {image_filename} ({len(faces) if faces else 0} face(s))", flush=True)
     except Exception as e:
         print(f"[reactor_preanalyze] error: {e}", flush=True)
         traceback.print_exc()
+
+
+def _warm_reactor_gpu_analyzer():
+    """
+    Pre-warm ReActor's GPU buffalo_l analyzer INSIDE ComfyUI's process.
+
+    The standalone warmup_insightface.py runs in a separate process, so its
+    CUDA kernel cache and ONNX sessions are not visible to ComfyUI. Without
+    this in-process warmup, the first ReActorFaceSwap call pays ~25s of
+    one-time cost: load 5 ONNX models from disk, create CUDA sessions,
+    cudnn EXHAUSTIVE algo search, JIT compile kernels for the input shape.
+
+    Runs in a background thread so it doesn't block ComfyUI startup.
+    Populates ReActor's module-level ANALYSIS_MODELS dict, so the first
+    real ReActorFaceSwap call finds the analyzer ready to go.
+    """
+    def _do():
+        try:
+            import time
+            import os as _os
+            import numpy as np
+            t0 = time.time()
+            reactor_dir = "/comfyui/custom_nodes/comfyui-reactor"
+            if reactor_dir not in sys.path:
+                sys.path.insert(0, reactor_dir)
+            from scripts import reactor_swapper
+
+            # Run analyze_faces on a REAL face image so all 5 buffalo_l models fire
+            # (detection + 2D/3D landmarks + gender/age + recognition embedding).
+            # A blank/zero image only triggers detection — it returns no faces, so
+            # the secondary models never run, and they JIT-compile on the first real
+            # target image (~5s each, ~20s total). Using an actual face here forces
+            # the full pipeline to compile up-front.
+            #
+            # Insightface ships test images bundled with the pip package — use one
+            # of those (no need to bake a separate sample into the worker image).
+            candidate_paths = [
+                "/opt/venv/lib/python3.12/site-packages/insightface/data/images/t1.jpg",
+                "/opt/venv/lib/python3.12/site-packages/insightface/data/images/Tom_Hanks_54745.png",
+            ]
+            sample_path = next((p for p in candidate_paths if _os.path.exists(p)), None)
+            if sample_path is None:
+                print(f"[reactor_preanalyze] no sample face found, falling back to detection-only warmup", flush=True)
+                reactor_swapper.getAnalysisModel(det_size=(640, 640))
+                print(f"[reactor_preanalyze] GPU detection model loaded in {time.time()-t0:.1f}s", flush=True)
+                return
+
+            import cv2
+            sample = cv2.imread(sample_path)
+            if sample is None:
+                print(f"[reactor_preanalyze] failed to read sample face — skipping warmup", flush=True)
+                return
+            print(f"[reactor_preanalyze] warmup sample: {sample_path} ({sample.shape})", flush=True)
+
+            t1 = time.time()
+            faces = reactor_swapper.analyze_faces(sample)
+            print(
+                f"[reactor_preanalyze] full warmup on real face: {len(faces) if faces else 0} face(s) "
+                f"detected in {time.time()-t1:.1f}s (total {time.time()-t0:.1f}s)",
+                flush=True,
+            )
+            # Reset SOURCE_FACES — the warmup populated it with the dummy face but
+            # the next real job will re-populate via the middleware's preanalyze.
+            reactor_swapper.SOURCE_FACES = None
+            reactor_swapper.SOURCE_IMAGE_HASH = None
+        except Exception as e:
+            print(f"[reactor_preanalyze] GPU warmup failed (non-fatal): {e}", flush=True)
+            traceback.print_exc()
+
+    threading.Thread(target=_do, daemon=True, name="reactor-gpu-warmup").start()
 
 
 def _register_middleware():
@@ -160,6 +239,12 @@ def _register_middleware():
 
 
 _register_middleware()
+# NOTE: GPU buffalo_l warmup at boot was attempted but causes SIGFPE/CUDA stream
+# conflicts when run concurrently with ComfyUI's own initialization. The first
+# ReActor target analysis per worker pays ~25s of cudnn EXHAUSTIVE search across
+# the 5 buffalo_l ONNX models (det_10g, 1k3d68, 2d106det, genderage, w600k_r50).
+# Subsequent jobs on the same worker are fast (~2s) because kernels are cached.
+# Live with the cold-first-job penalty rather than crash the worker.
 
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
