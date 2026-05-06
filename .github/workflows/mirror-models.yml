@@ -1,0 +1,98 @@
+name: Mirror models to HF
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      # Need ~25 GB free; default runner has ~14 GB. Reclaim aggressively.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install huggingface_hub + hf_transfer
+        run: pip install --upgrade huggingface_hub hf_transfer
+
+      - name: Mirror specific files into techwavelaps/qwen-ai-inpainter
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_HUB_ENABLE_HF_TRANSFER: "1"
+        run: |
+          python <<'PY'
+          import os, shutil
+          from huggingface_hub import hf_hub_download, upload_file, list_repo_files, login
+
+          login(token=os.environ["HF_TOKEN"])
+
+          TARGET = "techwavelaps/qwen-ai-inpainter"
+
+          # (source_repo, source_filename, target_filename_in_repo)
+          SOURCES = [
+              ("Comfy-Org/Qwen-Image-Edit_ComfyUI",
+               "split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
+               "qwen_image_edit_2511_fp8mixed.safetensors"),
+              ("Comfy-Org/Qwen-Image_ComfyUI",
+               "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+               "qwen_2.5_vl_7b_fp8_scaled.safetensors"),
+              ("Comfy-Org/Qwen-Image_ComfyUI",
+               "split_files/vae/qwen_image_vae.safetensors",
+               "qwen_image_vae.safetensors"),
+              ("lightx2v/Qwen-Image-Edit-2511-Lightning",
+               "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+               "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors"),
+              ("prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait",
+               "HRP_20.safetensors",
+               "HRP_20.safetensors"),
+              ("ostris/qwen_image_edit_inpainting",
+               "qwen_image_edit_inpainting.safetensors",
+               "qwen_image_edit_inpainting.safetensors"),
+          ]
+
+          existing = set(list_repo_files(TARGET))
+          print(f"Existing files in {TARGET}: {sorted(existing)}")
+
+          tmp_dir = "/tmp/hf_mirror"
+          os.makedirs(tmp_dir, exist_ok=True)
+
+          for src_repo, src_path, tgt_path in SOURCES:
+              if tgt_path in existing:
+                  print(f"SKIP (already in target): {tgt_path}")
+                  continue
+              print(f"\n=== {src_repo} :: {src_path} -> {TARGET}/{tgt_path} ===")
+              # Download to a clean local dir (no symlinks) so we can remove it after upload
+              local = hf_hub_download(
+                  repo_id=src_repo,
+                  filename=src_path,
+                  local_dir=tmp_dir,
+                  local_dir_use_symlinks=False,
+              )
+              size_gb = os.path.getsize(local) / (1024**3)
+              print(f"  downloaded {size_gb:.2f} GB -> {local}")
+              upload_file(
+                  path_or_fileobj=local,
+                  path_in_repo=tgt_path,
+                  repo_id=TARGET,
+                  repo_type="model",
+                  commit_message=f"Add {tgt_path} from {src_repo}",
+              )
+              print(f"  uploaded to {TARGET}/{tgt_path}")
+              # Free disk between files (each ~14 GB max)
+              shutil.rmtree(tmp_dir, ignore_errors=True)
+              os.makedirs(tmp_dir, exist_ok=True)
+
+          print("\nDONE")
+          PY
