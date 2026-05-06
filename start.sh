@@ -16,8 +16,6 @@ set -e
     cat /comfyui/models/loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors > /dev/null 2>&1 || true
     cat /comfyui/models/loras/HRP_20.safetensors > /dev/null 2>&1 || true
     cat /comfyui/models/loras/qwen_image_edit_inpainting.safetensors > /dev/null 2>&1 || true
-    cat /comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors > /dev/null 2>&1 || true
-    cat /comfyui/models/loras/qwen_image_edit_fusion.safetensors > /dev/null 2>&1 || true
     cat /comfyui/models/vae/qwen_image_vae.safetensors > /dev/null 2>&1 || true
 ) &
 echo "worker-comfyui: disk-read-early started (PID $!) — warming page cache for big models"

@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-06T06:30
+# build trigger: 2026-05-06T06:35
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -116,16 +116,6 @@ RUN wget -q \
 RUN wget -q \
     https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
     -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
-
-# Union ControlNet LoRA (~944 MB) — DWPose / OpenPose conditioning
-RUN wget -q \
-    https://huggingface.co/Comfy-Org/Qwen-Image-DiffSynth-ControlNets/resolve/main/split_files/loras/qwen_image_union_diffsynth_lora.safetensors \
-    -O /comfyui/models/loras/qwen_image_union_diffsynth_lora.safetensors
-
-# Fusion LoRA (~236 MB) — blends subject into background naturally
-RUN wget -q \
-    https://huggingface.co/vantagewithai/Qwen_Image_Edit_LoRAs/resolve/main/qwen_image_edit_fusion.safetensors \
-    -O /comfyui/models/loras/qwen_image_edit_fusion.safetensors
 
 # Qwen Image Edit diffusion model — fp8 mixed (~14 GB) — biggest file, biggest win from hf_transfer
 RUN hf download Comfy-Org/Qwen-Image-Edit_ComfyUI \
