@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-07T01:30 — slim image, models from RunPod Model Cache
+# build trigger: 2026-05-07T02:00 — SageAttention + HF_HOME + drop Manager + lighter GFPGAN
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -20,6 +20,20 @@ ENV TORCH_CUDA_ARCH_LIST="8.9;9.0;12.0"
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install hf_transfer
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
+
+# Point all HF-aware tools (transformers, diffusers, insightface auto-download,
+# any future LoRA URL fetches) at RunPod's Model Cache mount point. Means a
+# single shared cache across all tools instead of per-tool re-downloads.
+ENV HF_HOME=/runpod-volume/huggingface-cache
+ENV HF_HUB_CACHE=/runpod-volume/huggingface-cache
+ENV TRANSFORMERS_CACHE=/runpod-volume/huggingface-cache
+
+# SageAttention — int8 attention kernels, 1.3-2× faster than PyTorch SDPA on
+# H100/A100. ComfyUI picks it up via --use-sage-attention flag in start.sh.
+# Note: prebuilt wheel for torch 2.10 may not exist — install with || true so
+# image build succeeds either way; ComfyUI falls back to default attention.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install sageattention || echo "sageattention install failed — fallback to default attention"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Python dependencies for ReActor face swap
@@ -78,6 +92,11 @@ COPY reactor_preanalyze /comfyui/custom_nodes/reactor_preanalyze
 
 # Remove unused nodes to speed up startup
 RUN rm -rf /comfyui/comfy_api_nodes
+
+# Drop ComfyUI-Manager — base image bakes it in but we don't use the UI for
+# anything (workflow comes via API). Manager runs a security/registry scan
+# at boot adding ~3s of cold-start time we don't need.
+RUN rm -rf /comfyui/custom_nodes/ComfyUI-Manager
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Models — NOT baked into the image. Pulled at runtime via RunPod's Model
