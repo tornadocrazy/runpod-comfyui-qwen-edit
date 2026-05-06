@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-05T01:07
+# build trigger: 2026-05-06T05:55
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -48,12 +48,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Custom nodes required by Qwen Edit workflows
 # ─────────────────────────────────────────────────────────────────────────────
 # Clone all nodes in one step (skips comfy-node-install registry overhead)
+# Locked workflow uses: KJNodes (CFGNorm) + ReActor (face swap) only.
+# Dropped: comfyui_controlnet_aux (we send pre-rendered DWPose images, no preprocessor needed),
+#          comfyui_qwen_image_edit_adv (reverted from Adv encoder, locked on built-in TextEncodeQwenImageEditPlus),
+#          ComfyUI-Inpaint-CropAndStitch (using green-screen inpaint instead).
 RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/kijai/ComfyUI-KJNodes && \
-    git clone --depth 1 https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch && \
-    git clone --depth 1 https://github.com/Gourieff/ComfyUI-ReActor comfyui-reactor && \
-    git clone --depth 1 https://github.com/Fannovel16/comfyui_controlnet_aux && \
-    git clone --depth 1 https://github.com/lenML/comfyui_qwen_image_edit_adv
+    git clone --depth 1 https://github.com/Gourieff/ComfyUI-ReActor comfyui-reactor
 
 # One uv resolver pass for all node requirements + pin GPU onnxruntime
 # After node deps drag in CPU onnxruntime, force a clean reinstall of -gpu so
@@ -62,8 +63,7 @@ RUN cd /comfyui/custom_nodes && \
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install \
         -r /comfyui/custom_nodes/ComfyUI-KJNodes/requirements.txt \
-        -r /comfyui/custom_nodes/comfyui-reactor/requirements.txt \
-        -r /comfyui/custom_nodes/comfyui_controlnet_aux/requirements.txt && \
+        -r /comfyui/custom_nodes/comfyui-reactor/requirements.txt && \
     uv pip uninstall onnxruntime onnxruntime-gpu && \
     uv pip install --reinstall onnxruntime-gpu==1.22.0 && \
     python -c "import onnxruntime; assert hasattr(onnxruntime, 'InferenceSession'), 'onnxruntime broken'; print('onnxruntime OK:', onnxruntime.__version__)"
