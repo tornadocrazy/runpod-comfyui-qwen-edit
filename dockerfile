@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-05T02:13
+# build trigger: 2026-05-05T01:07
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -50,6 +50,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Clone all nodes in one step (skips comfy-node-install registry overhead)
 RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/kijai/ComfyUI-KJNodes && \
+    git clone --depth 1 https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch && \
     git clone --depth 1 https://github.com/Gourieff/ComfyUI-ReActor comfyui-reactor && \
     git clone --depth 1 https://github.com/Fannovel16/comfyui_controlnet_aux && \
     git clone --depth 1 https://github.com/lenML/comfyui_qwen_image_edit_adv
@@ -105,6 +106,11 @@ RUN wget -q \
 RUN wget -q \
     https://huggingface.co/prithivMLmods/Qwen-Image-Edit-2511-Hyper-Realistic-Portrait/resolve/main/HRP_20.safetensors \
     -O /comfyui/models/loras/HRP_20.safetensors
+
+# Qwen Image Edit Inpaint LoRA (~590 MB) — used by inpaint workflows
+RUN wget -q \
+    https://huggingface.co/ostris/qwen_image_edit_inpainting/resolve/main/qwen_image_edit_inpainting.safetensors \
+    -O /comfyui/models/loras/qwen_image_edit_inpainting.safetensors
 
 # Union ControlNet LoRA (~944 MB) — DWPose / OpenPose conditioning
 RUN wget -q \
