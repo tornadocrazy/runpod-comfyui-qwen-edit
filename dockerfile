@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-07T02:00 — SageAttention + HF_HOME + drop Manager + lighter GFPGAN
+# build trigger: 2026-05-07T02:30 — add gcc for SageAttention/Triton JIT
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -12,6 +12,15 @@ ENV TORCH_CUDA_ARCH_LIST="8.9;9.0;12.0"
 # Skipped apt-get update + install — base image already has wget; unzip is
 # replaced with a Python stdlib call below for the one .zip we need to extract.
 # Drops ~30s from every build.
+#
+# EXCEPTION: gcc is required at RUNTIME by Triton (used by SageAttention) to
+# JIT-compile its int8 attention kernels on first inference call. Without
+# gcc, Triton errors and SageAttention falls back to PyTorch SDPA (no perf
+# win). build-essential adds ~50 MB to the image but unlocks the SageAttention
+# speedup we paid the install cost for.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install hf_transfer (Rust-based parallel multi-connection downloader) and
 # enable it for all huggingface-cli downloads. Big files (14 GB diffusion,
