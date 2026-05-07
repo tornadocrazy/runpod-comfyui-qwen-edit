@@ -39,19 +39,16 @@ echo "worker-comfyui: Starting ComfyUI (Qwen Edit)"
 # regularly" + "Backend eager selected for dequantize_per_tensor_fp8" spam
 # (~120 lines per cold start) — it's DEBUG noise, not actual lowvram mode.
 : "${COMFY_LOG_LEVEL:=INFO}"
-# Default flags. SageAttention is conditional: enabling --use-sage-attention
-# without the package crashes ComfyUI at startup (same trap as flash-attn).
-if python -c "import sageattention" 2>/dev/null; then
-    SAGE_FLAG="--use-sage-attention"
-    echo "worker-comfyui: SageAttention available — enabling fast attention path"
-else
-    SAGE_FLAG=""
-    echo "worker-comfyui: SageAttention not installed — falling back to default attention"
-fi
+# SageAttention v1.0.6 (latest on PyPI) produces all-black output on Qwen
+# Image Edit fp8mixed — the int8 quantization compounds with the model's
+# fp8 weights and Lightning LoRA, output collapses. v2.x (github-only,
+# requires nvcc to build) may fix this. For now, sage is installed but
+# NOT enabled by default. Override via COMFY_EXTRA_ARGS env var to test.
+#
 #   --highvram             keep models in VRAM between requests
 #   --disable-smart-memory skip ComfyUI's smart eviction layer; we control
 #                          memory via highvram + Lightning's tight VRAM budget
-: "${COMFY_EXTRA_ARGS:=--highvram --disable-smart-memory ${SAGE_FLAG}}"
+: "${COMFY_EXTRA_ARGS:=--highvram --disable-smart-memory}"
 
 if [ "$SERVE_API_LOCALLY" == "true" ]; then
     python -u /comfyui/main.py --disable-auto-launch --disable-metadata --listen --verbose "${COMFY_LOG_LEVEL}" --log-stdout ${COMFY_EXTRA_ARGS} &
