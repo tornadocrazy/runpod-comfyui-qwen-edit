@@ -39,25 +39,16 @@ echo "worker-comfyui: Starting ComfyUI (Qwen Edit)"
 # regularly" + "Backend eager selected for dequantize_per_tensor_fp8" spam
 # (~120 lines per cold start) — it's DEBUG noise, not actual lowvram mode.
 : "${COMFY_LOG_LEVEL:=INFO}"
-# SageAttention v2.2.0 (HF wheel, dockerfile install) routes our GPUs through
-# CUDA kernels — faster than PyTorch SDPA without the v1.0.6 black-output bug.
-# Verified working on RTX 6000 Pro Blackwell (sm_120) end-to-end.
-# Conditional flag: only added if the package imports successfully (defensive).
+# SageAttention v1.0.6 (latest on PyPI) produces all-black output on Qwen
+# Image Edit fp8mixed — the int8 quantization compounds with the model's
+# fp8 weights and Lightning LoRA, output collapses. v2.x (github-only,
+# requires nvcc to build) may fix this. For now, sage is installed but
+# NOT enabled by default. Override via COMFY_EXTRA_ARGS env var to test.
 #
-#   --highvram           keep models in VRAM between requests
-#   --use-sage-attention route Qwen attention through SageAttention CUDA kernels
-#
-# Note: --disable-smart-memory was tested but caused VRAM pile-up on multi-LoRA
-# reloads (warmup chain ≠ real workflow chain → both UNet copies pinned in VRAM
-# when smart memory is off). Smart memory's eviction is genuinely useful here.
-if python -c "import sageattention" 2>/dev/null; then
-    SAGE_FLAG="--use-sage-attention"
-    echo "worker-comfyui: SageAttention available — enabling fast attention path"
-else
-    SAGE_FLAG=""
-    echo "worker-comfyui: SageAttention not installed — falling back to default attention"
-fi
-: "${COMFY_EXTRA_ARGS:=--highvram ${SAGE_FLAG}}"
+#   --highvram             keep models in VRAM between requests
+#   --disable-smart-memory skip ComfyUI's smart eviction layer; we control
+#                          memory via highvram + Lightning's tight VRAM budget
+: "${COMFY_EXTRA_ARGS:=--highvram --disable-smart-memory}"
 
 if [ "$SERVE_API_LOCALLY" == "true" ]; then
     python -u /comfyui/main.py --disable-auto-launch --disable-metadata --listen --verbose "${COMFY_LOG_LEVEL}" --log-stdout ${COMFY_EXTRA_ARGS} &

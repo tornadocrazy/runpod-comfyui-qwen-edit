@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-07T04:30 — sage 2.2.0 wheel + smart-memory back on
+# build trigger: 2026-05-07T04:00 — drop sage + build-essential + python3-dev (sage didn't pan out)
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -28,23 +28,15 @@ ENV HF_HOME=/runpod-volume/huggingface-cache
 ENV HF_HUB_CACHE=/runpod-volume/huggingface-cache
 ENV TRANSFORMERS_CACHE=/runpod-volume/huggingface-cache
 
-# SageAttention v2.2.0 — int8 attention kernels, faster than PyTorch SDPA.
-# Why this specific wheel:
-#   - PyPI only ships v1.0.6 which produces all-black output on Qwen Image
-#     Edit (too old, missing variant kernels)
-#   - v2.x is officially github-only and needs nvcc to build from source
-#   - Ovidijusk80/sageattention-2.2.0-...whl on HF is a community-built
-#     Linux Python 3.12 prebuilt wheel that includes all the CUDA kernels.
-#     No Triton JIT needed at runtime for sm_80/sm_89/sm_90/sm_120 — those
-#     arches route through bundled CUDA kernels per sageattention/core.py.
-#   - sm_86 (A40, RTX 3090) is the only arch that hits the Triton path
-#     (which is buggy on Qwen — github.com/Comfy-Org/ComfyUI/issues/9773).
-#     We don't run on sm_86; if we ever do, need to patch core.py to route
-#     sm_86 → sageattn_qk_int8_pv_fp16_cuda.
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install \
-        https://huggingface.co/Ovidijusk80/sageattention-2.2.0-cp312-cp312-linux_x86_64.whl/resolve/main/sageattention-2.2.0-cp312-cp312-linux_x86_64.whl \
-        || echo "sageattention 2.2.0 wheel install failed — fallback to default attention"
+# NOTE: SageAttention experiment removed.
+# Tried sageattention v1.0.6 (only version on PyPI). Triton compiles fine
+# (after build-essential + python3-dev), but real Qwen Image Edit workflow
+# produces all-black output — v1.0.6 is too old to handle this model's
+# attention pattern. v2.x (github only, requires nvcc to compile) might
+# work but adds ~3 GB image bloat for cuda-toolkit. Not worth it for the
+# expected ~2-3s/job KSampler win.
+# Re-add to dockerfile + start.sh + apt(build-essential, python3-dev) when
+# someone publishes a working sage v2.x wheel for torch 2.10.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Python dependencies for ReActor face swap
