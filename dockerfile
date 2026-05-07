@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-07T03:30 — disable SageAttention v1.0.6 (black output on Qwen)
+# build trigger: 2026-05-07T04:00 — drop sage + build-essential + python3-dev (sage didn't pan out)
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
@@ -12,16 +12,6 @@ ENV TORCH_CUDA_ARCH_LIST="8.9;9.0;12.0"
 # Skipped apt-get update + install — base image already has wget; unzip is
 # replaced with a Python stdlib call below for the one .zip we need to extract.
 # Drops ~30s from every build.
-#
-# EXCEPTION: gcc is required at RUNTIME by Triton (used by SageAttention) to
-# JIT-compile its int8 attention kernels on first inference call. Without
-# gcc, Triton errors and SageAttention falls back to PyTorch SDPA (no perf
-# win). build-essential adds ~50 MB to the image but unlocks the SageAttention
-# speedup we paid the install cost for.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
 
 # Install hf_transfer (Rust-based parallel multi-connection downloader) and
 # enable it for all huggingface-cli downloads. Big files (14 GB diffusion,
@@ -38,12 +28,15 @@ ENV HF_HOME=/runpod-volume/huggingface-cache
 ENV HF_HUB_CACHE=/runpod-volume/huggingface-cache
 ENV TRANSFORMERS_CACHE=/runpod-volume/huggingface-cache
 
-# SageAttention — int8 attention kernels, 1.3-2× faster than PyTorch SDPA on
-# H100/A100. ComfyUI picks it up via --use-sage-attention flag in start.sh.
-# Note: prebuilt wheel for torch 2.10 may not exist — install with || true so
-# image build succeeds either way; ComfyUI falls back to default attention.
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install sageattention || echo "sageattention install failed — fallback to default attention"
+# NOTE: SageAttention experiment removed.
+# Tried sageattention v1.0.6 (only version on PyPI). Triton compiles fine
+# (after build-essential + python3-dev), but real Qwen Image Edit workflow
+# produces all-black output — v1.0.6 is too old to handle this model's
+# attention pattern. v2.x (github only, requires nvcc to compile) might
+# work but adds ~3 GB image bloat for cuda-toolkit. Not worth it for the
+# expected ~2-3s/job KSampler win.
+# Re-add to dockerfile + start.sh + apt(build-essential, python3-dev) when
+# someone publishes a working sage v2.x wheel for torch 2.10.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Python dependencies for ReActor face swap
