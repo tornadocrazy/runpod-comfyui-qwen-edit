@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-07T04:00 — drop sage + build-essential + python3-dev (sage didn't pan out)
+# build trigger: 2026-05-07T05:30 — drop warmup_qwen synchronous block
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv

@@ -50,6 +50,28 @@ echo "worker-comfyui: Starting ComfyUI (Qwen Edit)"
 #                          memory via highvram + Lightning's tight VRAM budget
 : "${COMFY_EXTRA_ARGS:=--highvram --disable-smart-memory}"
 
+# Wait for ComfyUI's HTTP API to come up (~9s typically). We replace
+# warmup_qwen.py here: that script's full 1-step dummy workflow took ~18s
+# of cold-boot time but its only durable benefit (CUDA kernel JIT for
+# KSampler) is a ~5s saving on jobs 2+. For sporadic-fire pattern where
+# workers handle ~1 job per cold-start lifetime, that's a net loss. The
+# first real job now pays the kernel JIT + LoRA-chain UNet load itself,
+# but we save ~17s on cold-boot regardless of whether jobs follow.
+# disk-read-early (above) still warms the OS page cache so the real job's
+# UNet load is RAM-speed, not slow disk-speed.
+wait_for_comfy_api() {
+    echo "worker-comfyui: Waiting for ComfyUI API to come up..."
+    for i in $(seq 1 60); do
+        if python -c "import urllib.request, json; urllib.request.urlopen('http://127.0.0.1:8188/system_stats', timeout=1).read()" 2>/dev/null; then
+            echo "worker-comfyui: ComfyUI API ready after ${i}s"
+            return 0
+        fi
+        sleep 1
+    done
+    echo "worker-comfyui - WARNING: ComfyUI API did not come up within 60s, starting handler anyway" >&2
+    return 1
+}
+
 if [ "$SERVE_API_LOCALLY" == "true" ]; then
     python -u /comfyui/main.py --disable-auto-launch --disable-metadata --listen --verbose "${COMFY_LOG_LEVEL}" --log-stdout ${COMFY_EXTRA_ARGS} &
 
@@ -62,15 +84,7 @@ if [ "$SERVE_API_LOCALLY" == "true" ]; then
     # First ReActor face-swap triggers ~30s of CUDA kernel compile.
     python -u /warmup_insightface.py &
 
-    # Pre-warm Qwen Image Edit pipeline on GPU via a 1-step dummy workflow.
-    # Block handler startup until warmup finishes so the first real request
-    # is guaranteed to find models already on GPU (avoids race with handler
-    # uploads for the ComfyUI /prompt queue slot).
-    python -u /warmup_qwen.py &
-    WARMUP_QWEN_PID=$!
-
-    echo "worker-comfyui: Waiting for Qwen warmup before starting handler..."
-    wait "${WARMUP_QWEN_PID}" || echo "worker-comfyui - warmup_qwen exited non-zero (continuing anyway)" >&2
+    wait_for_comfy_api
 
     echo "worker-comfyui: Starting RunPod Handler"
     python -u /handler.py --rp_serve_api --rp_api_host=0.0.0.0
@@ -83,13 +97,7 @@ else
     # Pre-warm InsightFace (buffalo_l + inswapper) ONNX CUDA sessions.
     python -u /warmup_insightface.py &
 
-    # Pre-warm Qwen Image Edit pipeline on GPU via a 1-step dummy workflow.
-    # Block handler startup until warmup finishes (see comment above).
-    python -u /warmup_qwen.py &
-    WARMUP_QWEN_PID=$!
-
-    echo "worker-comfyui: Waiting for Qwen warmup before starting handler..."
-    wait "${WARMUP_QWEN_PID}" || echo "worker-comfyui - warmup_qwen exited non-zero (continuing anyway)" >&2
+    wait_for_comfy_api
 
     echo "worker-comfyui: Starting RunPod Handler"
     python -u /handler.py
