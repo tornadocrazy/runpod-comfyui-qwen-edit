@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.8.5-base
-# build trigger: 2026-05-07T02:50 — add python3-dev for Triton's Python.h
+# build trigger: 2026-05-07T03:10 — retrigger
 
 # uv is pre-installed in the base image; point it at the base venv
 ENV VIRTUAL_ENV=/opt/venv
